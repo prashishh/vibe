@@ -707,9 +707,8 @@ async function listBuilds() {
     }
     if (
       buildStatus === 'blocked' &&
-      /planning needs clarification/i.test(String(meta?.blockedReason || '')) &&
       Array.isArray(meta?.openQuestions) &&
-      meta.openQuestions.length > 0
+      meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean).length > 0
     ) {
       buildStatus = 'planning';
     }

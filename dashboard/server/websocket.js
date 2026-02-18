@@ -1,6 +1,7 @@
 function setupSSE(app, eventBus) {
   app.get('/api/execution/stream/:buildId', (req, res) => {
     const { buildId } = req.params;
+    const lastEventId = req.get('Last-Event-ID') || req.query?.lastEventId || '';
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -8,8 +9,8 @@ function setupSSE(app, eventBus) {
     res.flushHeaders?.();
 
     const client = eventBus.addClient(buildId, res);
-
-    res.write(`event: connected\ndata: ${JSON.stringify({ buildId, ok: true })}\n\n`);
+    eventBus.sendToClient(client, 'connected', { buildId, ok: true }, null);
+    eventBus.replayForClient(client, { lastEventId });
 
     const heartbeat = setInterval(() => {
       res.write('event: heartbeat\ndata: {}\n\n');

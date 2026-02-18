@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
-const MAX_RETRIES = 5
 const RETRY_BASE_DELAY = 2000
+const MAX_RETRY_DELAY = 30000
 
 export function useSSE(buildId, handlers = {}) {
   const retriesRef = useRef(0)
@@ -58,12 +58,10 @@ export function useSSE(buildId, handlers = {}) {
         if (closed) return
         source.close()
 
-        // Reconnect with exponential backoff
-        if (retriesRef.current < MAX_RETRIES) {
-          const delay = RETRY_BASE_DELAY * Math.pow(2, retriesRef.current)
-          retriesRef.current += 1
-          retryTimer = setTimeout(connect, delay)
-        }
+        // Reconnect with capped exponential backoff (never give up)
+        const delay = Math.min(RETRY_BASE_DELAY * Math.pow(2, retriesRef.current), MAX_RETRY_DELAY)
+        retriesRef.current += 1
+        retryTimer = setTimeout(connect, delay)
       }
     }
 

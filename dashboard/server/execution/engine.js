@@ -10,6 +10,7 @@ const { createStreamProcessor } = require('./stream-parser');
 
 function extractQuestions(output) {
   const ansiPattern = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+  const ignoreQuestionPattern = /^(ready to proceed\?|proceed\?|continue\?|should i proceed\?|say\s+[`'"]?(yes|ok|\/execute)[`'"]?.*)$/i;
   const questions = [];
   const seen = new Set();
   const lines = String(output || '').split('\n');
@@ -33,6 +34,7 @@ function extractQuestions(output) {
 
     const alnumCount = normalized.replace(/[^A-Za-z0-9]/g, '').length;
     if (alnumCount < 8) continue;
+    if (ignoreQuestionPattern.test(normalized)) continue;
     if (seen.has(normalized)) continue;
 
     seen.add(normalized);
@@ -47,6 +49,8 @@ class ExecutionEngine {
   constructor(eventBus) {
     this.eventBus = eventBus;
     this.running = new Map();
+    this.buildQueues = new Map();
+    this.defaultMaxConcurrent = 2;
   }
 
   key(buildId, taskId) {
@@ -70,6 +74,159 @@ class ExecutionEngine {
       }
     }
     return tasks;
+  }
+
+  getOrCreateQueue(buildId, maxConcurrent) {
+    const normalizedMax = Number.isFinite(maxConcurrent) && maxConcurrent > 0
+      ? Math.max(1, Math.floor(maxConcurrent))
+      : this.defaultMaxConcurrent;
+
+    let queue = this.buildQueues.get(buildId);
+    if (!queue) {
+      queue = {
+        buildId,
+        pending: [],
+        running: new Set(),
+        maxConcurrent: normalizedMax,
+        draining: false,
+      };
+      this.buildQueues.set(buildId, queue);
+      return queue;
+    }
+
+    queue.maxConcurrent = normalizedMax;
+    return queue;
+  }
+
+  getQueueState(buildId) {
+    const queue = this.buildQueues.get(buildId);
+    if (!queue) return null;
+    return {
+      buildId: queue.buildId,
+      maxConcurrent: queue.maxConcurrent,
+      pending: queue.pending.map(item => ({
+        taskId: item.taskId,
+        title: item.title || '',
+      })),
+      runningTaskIds: [...queue.running],
+      pendingCount: queue.pending.length,
+      runningCount: queue.running.size,
+      active: queue.pending.length > 0 || queue.running.size > 0,
+    };
+  }
+
+  async startBuildQueue({ buildId, entries, maxConcurrent }) {
+    if (!Array.isArray(entries)) {
+      throw new Error('entries must be an array');
+    }
+
+    const queue = this.getOrCreateQueue(buildId, maxConcurrent);
+    const pendingIds = new Set(queue.pending.map(item => item.taskId));
+    let enqueuedCount = 0;
+
+    for (const entry of entries) {
+      const taskId = entry?.taskId;
+      if (!taskId) continue;
+      if (pendingIds.has(taskId)) continue;
+      if (queue.running.has(taskId)) continue;
+      if (this.isRunning(buildId, taskId)) continue;
+
+      queue.pending.push({
+        ...entry,
+        taskId,
+      });
+      pendingIds.add(taskId);
+      enqueuedCount += 1;
+    }
+
+    if (enqueuedCount > 0) {
+      this.eventBus.broadcast(buildId, 'execution-log', {
+        buildId,
+        taskId: null,
+        stream: 'system',
+        message: `Queued ${enqueuedCount} task(s) for execution (max ${queue.maxConcurrent} concurrent).`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    void this.drainBuildQueue(buildId);
+
+    return {
+      enqueuedCount,
+      queue: this.getQueueState(buildId),
+    };
+  }
+
+  async drainBuildQueue(buildId) {
+    const queue = this.buildQueues.get(buildId);
+    if (!queue || queue.draining) return;
+    queue.draining = true;
+
+    try {
+      while (queue.running.size < queue.maxConcurrent && queue.pending.length > 0) {
+        const next = queue.pending.shift();
+        if (!next || !next.taskId) continue;
+
+        if (queue.running.has(next.taskId) || this.isRunning(buildId, next.taskId)) {
+          continue;
+        }
+
+        queue.running.add(next.taskId);
+
+        try {
+          await this.start({
+            buildId,
+            taskId: next.taskId,
+            command: next.command,
+            cwd: next.cwd,
+            handoffPrompt: next.handoffPrompt,
+            isStreamJson: next.isStreamJson,
+            runnerName: next.runnerName,
+          });
+        } catch (err) {
+          queue.running.delete(next.taskId);
+          const blockedReason = err?.message || 'Failed to start task';
+
+          if (/already running/i.test(blockedReason)) {
+            continue;
+          }
+
+          this.eventBus.broadcast(buildId, 'execution-log', {
+            buildId,
+            taskId: next.taskId,
+            stream: 'error',
+            message: `Failed to start ${next.taskId}: ${blockedReason}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          try {
+            await this.complete(buildId, next.taskId, 'blocked', { blockedReason });
+          } catch (completeErr) {
+            console.warn(`Failed to mark ${next.taskId} as blocked:`, completeErr.message);
+          }
+        }
+      }
+    } finally {
+      queue.draining = false;
+      if (queue.pending.length === 0 && queue.running.size === 0) {
+        this.buildQueues.delete(buildId);
+      }
+    }
+  }
+
+  onTaskSettled(buildId, taskId) {
+    const queue = this.buildQueues.get(buildId);
+    if (!queue) return;
+
+    queue.running.delete(taskId);
+    queue.pending = queue.pending.filter(item => item.taskId !== taskId);
+
+    if (queue.pending.length === 0 && queue.running.size === 0) {
+      this.buildQueues.delete(buildId);
+      return;
+    }
+
+    void this.drainBuildQueue(buildId);
   }
 
   async start({ buildId, taskId, command, cwd, handoffPrompt, isStreamJson, runnerName }) {
@@ -121,6 +278,8 @@ class ExecutionEngine {
       timestamp: payload.completedAt,
       ...extra,
     });
+
+    this.onTaskSettled(buildId, taskId);
 
     // Log completion/failure to Live Output
     if (status === 'review') {
@@ -366,7 +525,6 @@ class ExecutionEngine {
       // Analyze output: if runner asked for permission or reported inability,
       // treat as blocked even if exit code is 0
       const askedPermission = /permission|could you (grant|approve|allow)|i need (write )?access|unable to (write|create|modify)/i.test(fullStdout);
-      const nothingDone = /nothing to (do|implement|change)|already (done|exists|complete)|no changes needed/i.test(fullStdout);
 
       let status;
       let extra = {};

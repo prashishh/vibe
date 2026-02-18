@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import TaskColumn from './TaskColumn.jsx'
 import AddCardModal from './AddCardModal.jsx'
 import ExecutionView from './ExecutionView.jsx'
@@ -46,25 +46,6 @@ function useIsDesktopViewport() {
   return isDesktop
 }
 
-/**
- * Drain the concurrency queue: start tasks until we hit the max-concurrent cap.
- * Called whenever a task finishes or when the queue is first populated.
- */
-function drainQueue(queueRef) {
-  const q = queueRef.current
-  if (!q) return
-  while (q.running.size < q.maxConcurrent && q.pending.length > 0) {
-    const task = q.pending.shift()
-    q.running.add(task.id)
-    q.addLogFn('system', `Starting ${task.id}: ${task.title}...`)
-    q.startFn(task.id).catch(err => {
-      q.addLogFn('error', `Failed to start ${task.id}: ${err.message}`)
-      q.running.delete(task.id)
-      drainQueue(queueRef)
-    })
-  }
-}
-
 function TaskBoard() {
   const isDesktopViewport = useIsDesktopViewport()
   const [selectedBuildId, setSelectedBuildId] = useState('')
@@ -75,7 +56,6 @@ function TaskBoard() {
   const [planningBuilds, setPlanningBuilds] = useState(new Set())
   const [buildDocs, setBuildDocs] = useState({})
   const [pendingQuestions, setPendingQuestions] = useState([])
-  const concurrencyQueueRef = useRef(null)
 
   const {
     builds,
@@ -111,19 +91,6 @@ function TaskBoard() {
         ? { ...task, status: payload.status, blockedReason: payload.blockedReason || task.blockedReason }
         : task
     )))
-
-    // Concurrency queue: when a task reaches a terminal status, free its slot + drain
-    const terminalStatuses = new Set(['review', 'blocked', 'deployed'])
-    const q = concurrencyQueueRef.current
-    if (
-      q &&
-      terminalStatuses.has(payload.status) &&
-      q.buildId === payload.buildId &&
-      q.running.has(payload.taskId)
-    ) {
-      q.running.delete(payload.taskId)
-      drainQueue(concurrencyQueueRef)
-    }
   }, [setTasks])
 
   // SSE execution-log handler — appends directly to DOM for terminal-speed rendering
@@ -180,27 +147,14 @@ function TaskBoard() {
     onRunnerQuestions,
   })
 
-  // Load persisted logs when switching builds (survives page refresh)
+  // Reset terminal when no build is selected.
   useEffect(() => {
     if (!selectedBuildId) {
       terminal.clear()
       setHasLogs(false)
-      return
+      return undefined
     }
-    // Fetch persisted logs from server
-    fetch(`/api/tasks/builds/${selectedBuildId}/logs`)
-      .then(res => res.ok ? res.json() : { logs: [] })
-      .then(data => {
-        const persisted = (data.logs || []).map(entry => ({
-          stream: entry.stream || 'log',
-          message: entry.message || '',
-          timestamp: entry.ts || new Date().toISOString(),
-        }))
-        terminal.clear()
-        terminal.appendBatch(persisted)
-        setHasLogs(persisted.length > 0)
-      })
-      .catch(() => { terminal.clear(); setHasLogs(false) })
+    return undefined
   }, [selectedBuildId, terminal])
 
   // Load docs when a build is selected (if it has docs)
@@ -277,6 +231,7 @@ function TaskBoard() {
       }
 
       setPlanningBuilds(prev => new Set(prev).add(buildId))
+      addLog('system', `Starting planning for ${buildId}...`)
       terminal.showPlaceholder('Waiting for output from runner...')
 
       try {
@@ -366,20 +321,31 @@ function TaskBoard() {
           return
         }
 
-        addLog('system', `Auto-starting ${pendingTasks.length} task(s) (max 2 at a time)...`)
+        addLog('system', `Queueing ${pendingTasks.length} pending task(s) on server (max 2 at a time)...`)
 
-        // Concurrency-capped queue — max 2 tasks in flight at a time
-        // proper-lockfile in tasks-store.js serializes TASKS.md writes;
-        // with worktrees each task also writes to its own isolated dir.
-        concurrencyQueueRef.current = {
-          pending: [...pendingTasks],
-          running: new Set(),
-          maxConcurrent: 2,
-          buildId,
-          startFn: startExecution,
-          addLogFn: addLog,
+        const queueRes = await fetch(`/api/execution/${buildId}/start-pending`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            maxConcurrent: 2,
+            statuses: ['pending'],
+          }),
+        })
+        const queueData = await queueRes.json().catch(() => ({}))
+        if (!queueRes.ok) {
+          throw new Error(queueData.error || `Failed to queue pending tasks for ${buildId}`)
         }
-        drainQueue(concurrencyQueueRef)
+
+        const enqueuedCount = Number(queueData?.queued?.enqueuedCount || 0)
+        const queueState = queueData?.queued?.queue
+        if (enqueuedCount === 0) {
+          addLog('system', 'No new tasks were enqueued (they may already be running or completed).')
+        } else {
+          addLog('success', `Enqueued ${enqueuedCount} task(s).`)
+          if (queueState?.runningCount > 0) {
+            addLog('system', `${queueState.runningCount} task(s) running now; remaining tasks will auto-start as slots free up.`)
+          }
+        }
       } catch (err) {
         addLog('error', `Failed: ${err.message}`)
       }

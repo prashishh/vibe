@@ -305,6 +305,7 @@ function parseCommandTemplate(template) {
 
 function extractQuestions(output) {
   const ansiPattern = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+  const ignoreQuestionPattern = /^(ready to proceed\?|proceed\?|continue\?|should i proceed\?|say\s+[`'"]?(yes|ok|\/execute)[`'"]?.*)$/i;
   const questions = [];
   const seen = new Set();
   const lines = String(output || '').split('\n');
@@ -329,6 +330,7 @@ function extractQuestions(output) {
 
     const alnumCount = normalized.replace(/[^A-Za-z0-9]/g, '').length;
     if (alnumCount < 8) continue;
+    if (ignoreQuestionPattern.test(normalized)) continue;
     if (seen.has(normalized)) continue;
 
     seen.add(normalized);

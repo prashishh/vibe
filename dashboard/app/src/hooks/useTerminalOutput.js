@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
-const MAX_LINES = 2000
+const MAX_LINES = 50000
 
 const STREAM_COLORS = {
   stderr:  '#e8543e',
@@ -24,6 +24,24 @@ export function useTerminalOutput() {
   const lineCountRef = useRef(0)
   const userScrolledUpRef = useRef(false)
   const pendingEntriesRef = useRef([])
+  const continuationRef = useRef({ stream: null, el: null })
+
+  const isContinuableStream = useCallback(
+    (stream) => stream === 'stdout' || stream === 'stderr',
+    []
+  )
+
+  const createLineElement = useCallback((stream, initialText) => {
+    const div = document.createElement('div')
+    div.className = 'mb-1'
+    div.dataset.stream = stream
+
+    const color = STREAM_COLORS[stream] || STREAM_COLORS.log
+    const prefix = stream === 'stdout' ? '' : `[${stream}] `
+    div.style.color = color
+    div.textContent = `${prefix}${initialText}`
+    return div
+  }, [])
 
   const appendToElement = useCallback((el, logEntry) => {
     if (!el) return
@@ -32,31 +50,50 @@ export function useTerminalOutput() {
     const placeholder = el.querySelector('[data-placeholder]')
     if (placeholder) placeholder.remove()
 
-    const div = document.createElement('div')
-    div.className = 'mb-1'
-
     const stream = logEntry.stream || 'log'
-    const color = STREAM_COLORS[stream] || STREAM_COLORS.log
-    const prefix = stream === 'stdout' ? '' : `[${stream}] `
-    const text = String(logEntry.message || '').trimEnd()
+    const text = String(logEntry.message || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const parts = text.split('\n')
+    const hasTrailingNewline = text.endsWith('\n')
+    if (hasTrailingNewline) parts.pop()
+    if (parts.length === 0) parts.push('')
 
-    if (prefix) {
-      const span = document.createElement('span')
-      span.style.color = color
-      span.textContent = prefix
-      div.appendChild(span)
-      div.appendChild(document.createTextNode(text))
-    } else {
-      div.style.color = color
-      div.textContent = text
+    let lastLineEl = null
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index]
+      const canContinue =
+        index === 0 &&
+        isContinuableStream(stream) &&
+        continuationRef.current.stream === stream &&
+        continuationRef.current.el
+
+      if (canContinue) {
+        continuationRef.current.el.textContent += part
+        lastLineEl = continuationRef.current.el
+      } else {
+        const div = createLineElement(stream, part)
+        el.appendChild(div)
+        lineCountRef.current += 1
+        lastLineEl = div
+      }
+
+      const shouldCloseLine = index < parts.length - 1 || hasTrailingNewline
+      if (shouldCloseLine) {
+        continuationRef.current = { stream: null, el: null }
+      }
     }
 
-    el.appendChild(div)
-    lineCountRef.current += 1
+    if (isContinuableStream(stream) && !hasTrailingNewline) {
+      continuationRef.current = { stream, el: lastLineEl }
+    } else if (!isContinuableStream(stream)) {
+      continuationRef.current = { stream: null, el: null }
+    }
 
     // Prune oldest lines when over cap
     while (lineCountRef.current > MAX_LINES && el.firstChild) {
       if (el.firstChild.hasAttribute?.('data-placeholder')) break
+      if (continuationRef.current.el === el.firstChild) {
+        continuationRef.current = { stream: null, el: null }
+      }
       el.removeChild(el.firstChild)
       lineCountRef.current -= 1
     }
@@ -65,7 +102,7 @@ export function useTerminalOutput() {
     if (!userScrolledUpRef.current) {
       el.scrollTop = el.scrollHeight
     }
-  }, [])
+  }, [createLineElement, isContinuableStream])
 
   /** Detect whether user has scrolled up (pause auto-scroll). */
   const handleScroll = useCallback(() => {
@@ -116,6 +153,7 @@ export function useTerminalOutput() {
     lineCountRef.current = 0
     userScrolledUpRef.current = false
     pendingEntriesRef.current = []
+    continuationRef.current = { stream: null, el: null }
   }, [])
 
   // Flush any logs received before the terminal container mounted.
