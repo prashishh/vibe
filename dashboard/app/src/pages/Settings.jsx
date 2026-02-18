@@ -1,0 +1,465 @@
+import { useEffect, useState } from 'react'
+import {
+  fetchLLMConfig,
+  saveLLMConfig,
+  testRunnerConfig,
+} from '../hooks/useTaskAPI.js'
+
+const RUNNERS = ['claude', 'codex', 'gemini']
+
+const RUNNER_LABELS = {
+  claude: 'Claude Code',
+  codex: 'OpenAI Codex',
+  gemini: 'Google Gemini',
+}
+
+const MODEL_PREFS = [
+  { key: 'planning',  label: 'Planning & Code',    desc: 'Planning builds, writing code, running skills' },
+  { key: 'execution', label: 'Task Execution',     desc: 'Model injected via --model when executing tasks' },
+  { key: 'feedback',  label: 'Chat / Feedback',    desc: 'Chat, updating plans, modifying tasks' },
+  { key: 'guards',    label: 'Guard Verification', desc: 'Guard checks and guard-related operations' },
+]
+
+const COMMON_MODELS = {
+  claude: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
+  codex: ['o3', 'o4-mini', 'codex-mini'],
+  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+}
+
+const RUNNER_DEFAULTS = {
+  claude: { planning: 'claude-opus-4-6', execution: 'claude-sonnet-4-5-20250929', feedback: 'claude-sonnet-4-5-20250929', guards: 'claude-haiku-4-5-20251001' },
+  codex: { planning: 'o3', execution: 'codex-mini', feedback: 'o3', guards: 'o4-mini' },
+  gemini: { planning: 'gemini-2.5-pro', execution: 'gemini-2.5-flash', feedback: 'gemini-2.5-pro', guards: 'gemini-2.5-flash' },
+}
+
+const PROFILES = [
+  { key: 'planning', label: 'Planning', desc: 'Used to plan build tasks' },
+  { key: 'execution', label: 'Execution', desc: 'Used during task execution' },
+  { key: 'testing', label: 'Testing', desc: 'Used for test generation' },
+  { key: 'guards', label: 'Guards', desc: 'Used for guard checks' },
+  { key: 'review', label: 'Review', desc: 'Used for code review' },
+]
+
+function Settings() {
+  const [config, setConfig] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testingRunner, setTestingRunner] = useState('')
+  const [runnerResults, setRunnerResults] = useState({})
+  const [message, setMessage] = useState({ type: '', text: '' })
+
+  useEffect(() => {
+    ;(async () => {
+      setLoading(true)
+      try {
+        const data = await fetchLLMConfig()
+        setConfig(data)
+      } catch (err) {
+        setMessage({ type: 'error', text: err.message })
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
+  const updateExecution = (key, value) => {
+    setConfig(prev => ({
+      ...prev,
+      execution: { ...(prev.execution || {}), [key]: value },
+    }))
+  }
+
+  const updateRunner = (name, key, value) => {
+    setConfig(prev => ({
+      ...prev,
+      execution: {
+        ...(prev.execution || {}),
+        runners: {
+          ...(prev.execution?.runners || {}),
+          [name]: {
+            ...(prev.execution?.runners?.[name] || {}),
+            [key]: value,
+          },
+        },
+      },
+    }))
+  }
+
+  const updateProfile = (profile, key, value) => {
+    setConfig(prev => ({
+      ...prev,
+      llms: {
+        ...prev.llms,
+        [profile]: { ...prev.llms[profile], [key]: value },
+      },
+    }))
+  }
+
+  const updateModelPref = (phase, runner, value) => {
+    setConfig(prev => ({
+      ...prev,
+      modelPreferences: {
+        ...(prev.modelPreferences || {}),
+        [phase]: {
+          ...(typeof prev.modelPreferences?.[phase] === 'object' ? prev.modelPreferences[phase] : {}),
+          [runner]: value,
+        },
+      },
+    }))
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      const saved = await saveLLMConfig(config)
+      setConfig(saved)
+      setMessage({ type: 'success', text: 'Settings saved.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTestRunner = async (name) => {
+    setTestingRunner(name)
+    setRunnerResults(prev => ({ ...prev, [name]: null }))
+    try {
+      const result = await testRunnerConfig(name)
+      setRunnerResults(prev => ({ ...prev, [name]: result }))
+    } catch (err) {
+      setRunnerResults(prev => ({ ...prev, [name]: { ok: false, message: err.message } }))
+    } finally {
+      setTestingRunner('')
+    }
+  }
+
+  if (loading) {
+    return <p className="text-text-muted py-8">Loading settings...</p>
+  }
+
+  if (!config) {
+    return <p className="text-danger py-8">Unable to load configuration.</p>
+  }
+
+  const exec = config.execution || {}
+  const runners = exec.runners || {}
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {/* Page header */}
+      <div>
+        <h2 className="text-xl font-bold text-text-primary">Settings</h2>
+        <p className="text-sm text-text-muted mt-1">
+          Configure CLI runners and LLM profiles. Stored in <code className="text-xs bg-surface-alt px-1.5 py-0.5 rounded text-accent">.vibe/llm-config.json</code>
+        </p>
+      </div>
+
+      {/* Toast message */}
+      {message.text && (
+        <div className={`rounded-lg border-2 px-4 py-2.5 text-sm ${
+          message.type === 'error'
+            ? 'border-danger/40 bg-danger/5 text-danger'
+            : 'border-success/40 bg-success/5 text-success'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* ─── RUNNERS ─── */}
+      <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-bold text-text-primary">CLI Runners</h3>
+          <p className="text-xs text-text-muted mt-1">
+            Runners are CLI tools that execute tasks. Enable the ones installed on your machine.
+          </p>
+        </div>
+
+        {/* Mode + preferred runner + permission mode */}
+        <div className="flex items-center gap-6 flex-wrap">
+          <label className="text-xs text-text-secondary space-y-1">
+            <span className="font-medium">Execution Mode</span>
+            <select
+              value={exec.mode || 'auto_run'}
+              onChange={(e) => updateExecution('mode', e.target.value)}
+              className="block w-44 bg-surface-alt border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+            >
+              <option value="auto_run">Auto Run</option>
+              <option value="manual">Manual</option>
+            </select>
+          </label>
+
+          <label className="text-xs text-text-secondary space-y-1">
+            <span className="font-medium">Preferred Runner</span>
+            <select
+              value={exec.preferredRunner || 'claude'}
+              onChange={(e) => updateExecution('preferredRunner', e.target.value)}
+              className="block w-44 bg-surface-alt border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+            >
+              {RUNNERS.map(r => (
+                <option key={r} value={r}>{RUNNER_LABELS[r] || r}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs text-text-secondary space-y-1">
+            <span className="font-medium">Permission Mode</span>
+            <select
+              value={exec.permissionMode || 'bypassPermissions'}
+              onChange={(e) => updateExecution('permissionMode', e.target.value)}
+              className="block w-52 bg-surface-alt border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+            >
+              <option value="bypassPermissions">Bypass All Permissions</option>
+              <option value="acceptEdits">Auto-Accept Edits</option>
+              <option value="default">Default (prompt each)</option>
+            </select>
+          </label>
+        </div>
+
+        <p className="text-[10px] text-text-muted -mt-2 leading-snug">
+          <strong>Permission Mode</strong> controls how CLI runners handle file operations during task execution.
+          {' '}<em>Bypass All</em> auto-approves (Claude: --dangerously-skip-permissions, Codex: --full-auto).
+          {' '}<em>Auto-Accept Edits</em> allows file changes but may prompt for other tools.
+          {' '}<em>Default</em> uses each CLI&apos;s built-in permission flow. Not all runners support all modes.
+        </p>
+
+        {/* Runner cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {RUNNERS.map(name => {
+            const runner = runners[name] || {}
+            const isEnabled = runner.enabled === true
+            const testResult = runnerResults[name]
+            const isTesting = testingRunner === name
+
+            return (
+              <div
+                key={name}
+                className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
+                  isEnabled
+                    ? 'border-success/40 bg-success/5'
+                    : 'border-border bg-surface-alt'
+                }`}
+              >
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <h4 className="text-sm font-bold text-text-primary">{RUNNER_LABELS[name] || name}</h4>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      isEnabled
+                        ? 'bg-success/15 text-success'
+                        : 'bg-text-muted/10 text-text-muted'
+                    }`}>
+                      {isEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+
+                  {/* Toggle */}
+                  <button
+                    onClick={() => updateRunner(name, 'enabled', !isEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isEnabled ? 'bg-success' : 'bg-border'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      isEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Command template */}
+                <label className="block text-xs text-text-muted space-y-1">
+                  <span className="font-medium">Command Template</span>
+                  <input
+                    value={runner.commandTemplate || ''}
+                    onChange={(e) => updateRunner(name, 'commandTemplate', e.target.value)}
+                    placeholder={`${name} --print "{{handoffPrompt}}"`}
+                    className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </label>
+
+                {/* Test button + result */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTestRunner(name)}
+                    disabled={isTesting}
+                    className="px-3 py-1 rounded-lg text-xs font-medium border-2 border-info/40 text-info hover:bg-info/10 disabled:opacity-50"
+                  >
+                    {isTesting ? 'Testing...' : 'Test Runner'}
+                  </button>
+
+                  {testResult && (
+                    <span className={`text-xs font-medium ${testResult.ok ? 'text-success' : 'text-danger'}`}>
+                      {testResult.ok ? '✓ ' : '✗ '}{testResult.message}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ─── MODEL PREFERENCES ─── */}
+      <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-bold text-text-primary">Model Preferences</h3>
+          <p className="text-xs text-text-muted mt-1">
+            Choose which model each runner uses for each phase. The appropriate flag (<code className="text-xs bg-surface-alt px-1 py-0.5 rounded text-accent">--model</code> or <code className="text-xs bg-surface-alt px-1 py-0.5 rounded text-accent">-m</code>) is injected automatically.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {MODEL_PREFS.map(({ key, label, desc }) => (
+            <div key={key} className="rounded-lg border-2 border-border bg-surface-alt p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-bold text-text-primary">{label}</h4>
+                <p className="text-[10px] text-text-muted leading-snug mt-0.5">{desc}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {RUNNERS.map(runner => {
+                  const phaseVal = config.modelPreferences?.[key]
+                  const currentValue = typeof phaseVal === 'object'
+                    ? (phaseVal[runner] || '')
+                    : (runner === 'claude' && typeof phaseVal === 'string' ? phaseVal : (RUNNER_DEFAULTS[runner]?.[key] || ''))
+                  return (
+                    <label key={runner} className="block text-xs text-text-muted space-y-1">
+                      <span className="font-medium">{RUNNER_LABELS[runner] || runner}</span>
+                      <input
+                        list={`model-suggestions-${key}-${runner}`}
+                        value={currentValue}
+                        onChange={(e) => updateModelPref(key, runner, e.target.value)}
+                        placeholder={RUNNER_DEFAULTS[runner]?.[key] || ''}
+                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      />
+                      <datalist id={`model-suggestions-${key}-${runner}`}>
+                        {(COMMON_MODELS[runner] || []).map(m => (
+                          <option key={m} value={m} />
+                        ))}
+                      </datalist>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── LLM PROFILES ─── */}
+      <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-bold text-text-primary">LLM Profiles</h3>
+          <p className="text-xs text-text-muted mt-1">
+            API-based LLM configuration for each workflow stage. Only needed if using API mode — not required for CLI runners.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {PROFILES.map(({ key, label, desc }) => {
+            const entry = config.llms?.[key] || {}
+            return (
+              <details key={key} className="group rounded-lg border-2 border-border bg-surface-alt overflow-hidden">
+                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface-hover transition-colors">
+                  <div>
+                    <span className="text-sm font-semibold text-text-primary">{label}</span>
+                    <span className="text-xs text-text-muted ml-2">{desc}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-text-muted" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {entry.provider || 'anthropic'} / {entry.model || '—'}
+                    </span>
+                    <svg className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </summary>
+
+                <div className="px-4 pb-4 pt-2 border-t border-border space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-xs text-text-muted space-y-1">
+                      <span className="font-medium">Provider</span>
+                      <select
+                        value={entry.provider || 'anthropic'}
+                        onChange={(e) => updateProfile(key, 'provider', e.target.value)}
+                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      >
+                        <option value="anthropic">Anthropic</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-xs text-text-muted space-y-1">
+                      <span className="font-medium">Model</span>
+                      <input
+                        value={entry.model || ''}
+                        onChange={(e) => updateProfile(key, 'model', e.target.value)}
+                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block text-xs text-text-muted space-y-1">
+                    <span className="font-medium">API Key</span>
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={entry.apiKey || ''}
+                      onChange={(e) => updateProfile(key, 'apiKey', e.target.value)}
+                      placeholder="${ANTHROPIC_API_KEY}"
+                      className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    />
+                    {entry.apiKeyPreview && (
+                      <span className="text-[11px] text-text-muted">Resolved: {entry.apiKeyPreview}</span>
+                    )}
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-xs text-text-muted space-y-1">
+                      <span className="font-medium">Temperature</span>
+                      <input
+                        type="number" min="0" max="1" step="0.1"
+                        value={entry.temperature ?? 0.3}
+                        onChange={(e) => updateProfile(key, 'temperature', Number(e.target.value))}
+                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      />
+                    </label>
+                    <label className="block text-xs text-text-muted space-y-1">
+                      <span className="font-medium">Max Tokens</span>
+                      <input
+                        type="number" min="1"
+                        value={entry.maxTokens ?? 1024}
+                        onChange={(e) => updateProfile(key, 'maxTokens', Number(e.target.value))}
+                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </details>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Save button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving...' : 'Save Settings'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default Settings

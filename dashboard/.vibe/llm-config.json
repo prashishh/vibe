@@ -1,0 +1,104 @@
+{
+  "version": "1.1",
+  "execution": {
+    "mode": "auto_run",
+    "preferredRunner": "claude",
+    "permissionMode": "bypassPermissions",
+    "runners": {
+      "claude": {
+        "enabled": true,
+        "commandTemplate": "claude --print \"{{handoffPrompt}}\""
+      },
+      "codex": {
+        "enabled": false,
+        "commandTemplate": "codex exec - \"{{handoffPrompt}}\""
+      },
+      "gemini": {
+        "enabled": false,
+        "commandTemplate": "gemini \"{{handoffPrompt}}\""
+      }
+    }
+  },
+  "llms": {
+    "planning": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-5-20250929",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "temperature": 0.7,
+      "maxTokens": 4096,
+      "timeoutMs": 180000
+    },
+    "execution": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "temperature": 0.3,
+      "maxTokens": 8192,
+      "timeoutMs": 1800000
+    },
+    "testing": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini",
+      "apiKey": "${OPENAI_API_KEY}",
+      "temperature": 0.2,
+      "maxTokens": 4096,
+      "timeoutMs": 180000
+    },
+    "guards": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini",
+      "apiKey": "${OPENAI_API_KEY}",
+      "temperature": 0.1,
+      "maxTokens": 4096,
+      "timeoutMs": 180000
+    },
+    "review": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-6",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "temperature": 0.1,
+      "maxTokens": 8192,
+      "timeoutMs": 180000
+    }
+  },
+  "modelPreferences": {
+    "planning": {
+      "claude": "claude-opus-4-6",
+      "codex": "o3",
+      "gemini": "gemini-2.5-pro"
+    },
+    "execution": {
+      "claude": "claude-sonnet-4-5-20250929",
+      "codex": "codex-mini",
+      "gemini": "gemini-2.5-flash"
+    },
+    "feedback": {
+      "claude": "claude-sonnet-4-5-20250929",
+      "codex": "o3",
+      "gemini": "gemini-2.5-pro"
+    },
+    "guards": {
+      "claude": "claude-haiku-4-5-20251001",
+      "codex": "o4-mini",
+      "gemini": "gemini-2.5-flash"
+    }
+  },
+  "providers": {
+    "anthropic": {
+      "baseUrl": "https://api.anthropic.com/v1",
+      "headers": {}
+    },
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "headers": {}
+    },
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "headers": {}
+    },
+    "gemini": {
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "headers": {}
+    }
+  }
+}

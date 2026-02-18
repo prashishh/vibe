@@ -1,0 +1,35 @@
+version: 1
+framework: vibe
+commands:
+  plan:
+    intent: Create GOAL/PLAN/TASKS for next build
+    output:
+      - builds/vN/GOAL.md
+      - builds/vN/PLAN.md
+      - builds/vN/TASKS.md
+  execute:
+    intent: Implement next pending task and validate acceptance
+  check:
+    intent: Run all guard checks and report pass/fail
+  review:
+    intent: Post-verify review with PASS/BLOCKED status
+    prerequisites:
+      - tests_pass
+      - check_pass
+    output:
+      - builds/vN/REVIEW.md
+  ship:
+    intent: Maintain deploy checklist with checked completion state
+    prerequisites:
+      - review_pass
+    output:
+      - builds/vN/SHIP.md
+  recap:
+    intent: Write RECAP and update CHANGELOG
+    prerequisites:
+      - tests_pass
+      - check_pass
+      - review_pass
+      - ship_checklist_complete
+  propose:
+    intent: Suggest next build from recap seeds and priorities
