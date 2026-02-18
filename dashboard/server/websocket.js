@@ -10,10 +10,21 @@ function setupSSE(app, eventBus) {
 
     const client = eventBus.addClient(buildId, res);
     eventBus.sendToClient(client, 'connected', { buildId, ok: true }, null);
-    eventBus.replayForClient(client, { lastEventId });
+    const replay = eventBus.replayForClient(client, { lastEventId });
+    eventBus.sendToClient(client, 'stream-state', {
+      buildId,
+      replayedEvents: replay.replayedEvents || 0,
+      replayedLogs: replay.replayedLogs || 0,
+      lastEventId: eventBus.getLastEventId(buildId),
+      serverTime: new Date().toISOString(),
+    }, null);
 
     const heartbeat = setInterval(() => {
-      res.write('event: heartbeat\ndata: {}\n\n');
+      eventBus.sendToClient(client, 'heartbeat', {
+        buildId,
+        lastEventId: eventBus.getLastEventId(buildId),
+        serverTime: new Date().toISOString(),
+      }, null);
     }, 30000);
 
     req.on('close', () => {

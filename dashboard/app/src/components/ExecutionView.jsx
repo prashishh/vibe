@@ -854,8 +854,10 @@ function ExecutionView({
   const blockedCount = (tasks || []).filter(t => t.status === 'blocked').length
   const runnerQuestions = useMemo(() => collectQuestions(pendingQuestions), [pendingQuestions])
   const hasOpenQuestions = Boolean(
+    buildInfo?.needsInput ||
     buildInfo?.hasOpenQuestions ||
     (buildInfo?.openQuestionsCount || 0) > 0 ||
+    (buildInfo?.needsInputQuestions || []).length > 0 ||
     runnerQuestions.length > 0
   )
   const showLiveOutput = hasLogs || isPlanning || runningCount > 0

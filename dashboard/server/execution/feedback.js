@@ -108,6 +108,8 @@ async function runFeedback({ buildId, message, eventBus }) {
   }
 
   const projectRoot = meta.projectRoot || process.cwd();
+  const processId = `feedback-${buildId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+  let chunkIndex = 0;
 
   // Build the feedback prompt with all docs as context
   const feedbackPrompt = buildFeedbackPrompt({
@@ -140,11 +142,16 @@ async function runFeedback({ buildId, message, eventBus }) {
   const isStreamJson = injectStreamFlags(runnerName, cmdArgs);
 
   const log = (stream, msg) => {
+    chunkIndex += 1;
     eventBus.broadcast(buildId, 'execution-log', {
       buildId,
       taskId: null,
       stream,
       message: msg,
+      processId,
+      processType: 'feedback',
+      phase: 'feedback',
+      chunkIndex,
       timestamp: new Date().toISOString(),
     });
   };

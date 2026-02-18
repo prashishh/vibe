@@ -51,7 +51,7 @@ function TaskBoard() {
   const [selectedBuildId, setSelectedBuildId] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
-  const [hasLogs, setHasLogs] = useState(false)
+  const [hasLogsByBuild, setHasLogsByBuild] = useState({})
   const terminal = useTerminalOutput()
   const [planningBuilds, setPlanningBuilds] = useState(new Set())
   const [buildDocs, setBuildDocs] = useState({})
@@ -96,13 +96,19 @@ function TaskBoard() {
   // SSE execution-log handler — appends directly to DOM for terminal-speed rendering
   const onExecutionLog = useCallback((payload) => {
     if (!payload?.message && payload?.message !== '') return
+    const payloadBuildId = payload.buildId || selectedBuildId || ''
     terminal.appendLine({
       stream: payload.stream || 'log',
       message: payload.message,
       timestamp: payload.timestamp || new Date().toISOString(),
     })
-    setHasLogs(true)
-  }, [terminal])
+    if (payloadBuildId) {
+      setHasLogsByBuild(prev => {
+        if (prev[payloadBuildId]) return prev
+        return { ...prev, [payloadBuildId]: true }
+      })
+    }
+  }, [terminal, selectedBuildId])
 
   // SSE build-status-changed handler — refreshes builds when engine auto-moves a build
   const onBuildStatusChanged = useCallback((payload) => {
@@ -121,6 +127,32 @@ function TaskBoard() {
     }
   }, [refreshBuilds, refreshTasks, fetchDocs])
 
+  // SSE connected handler — always trigger a state resync after connect/reconnect
+  const onConnected = useCallback((payload) => {
+    const buildId = payload?.buildId || selectedBuildId
+    refreshBuilds()
+    if (buildId) {
+      refreshTasks(buildId)
+      fetchDocs(buildId).then(docs => setBuildDocs(docs)).catch(() => {})
+    }
+  }, [selectedBuildId, refreshBuilds, refreshTasks, fetchDocs])
+
+  // SSE stream-state handler — marks replayed log availability and performs targeted resync
+  const onStreamState = useCallback((payload) => {
+    const buildId = payload?.buildId || selectedBuildId || ''
+    if (!buildId) return
+
+    if (Number(payload?.replayedLogs || 0) > 0) {
+      setHasLogsByBuild(prev => {
+        if (prev[buildId]) return prev
+        return { ...prev, [buildId]: true }
+      })
+    }
+
+    refreshTasks(buildId)
+    fetchDocs(buildId).then(docs => setBuildDocs(docs)).catch(() => {})
+  }, [selectedBuildId, refreshTasks, fetchDocs])
+
   // SSE runner-questions handler — surfaces runner's clarifying questions in the UI
   const onRunnerQuestions = useCallback((payload) => {
     if (!payload?.questions?.length) return
@@ -128,30 +160,42 @@ function TaskBoard() {
       .map(q => String(q || '').replace(/\s+/g, ' ').trim())
       .filter(q => q && q !== '?')
     if (cleanedQuestions.length === 0) return
-    setPendingQuestions(prev => [
-      ...prev,
-      {
-        phase: payload.phase || 'unknown',
-        taskId: payload.taskId || null,
-        questions: cleanedQuestions,
-        timestamp: payload.timestamp || new Date().toISOString(),
-      },
-    ])
+    const phase = payload.phase || 'unknown'
+    const taskId = payload.taskId || null
+    const signature = `${phase}:${taskId || ''}:${cleanedQuestions.join(' | ')}`
+    setPendingQuestions(prev => {
+      const hasSame = prev.some(item => {
+        const itemQuestions = Array.isArray(item?.questions) ? item.questions : []
+        const itemSignature = `${item?.phase || 'unknown'}:${item?.taskId || ''}:${itemQuestions.join(' | ')}`
+        return itemSignature === signature
+      })
+      if (hasSame) return prev
+      return [
+        ...prev.slice(-19),
+        {
+          phase,
+          taskId,
+          questions: cleanedQuestions,
+          timestamp: payload.timestamp || new Date().toISOString(),
+        },
+      ]
+    })
   }, [])
 
   useSSE(selectedBuildId, {
+    onConnected,
     onTasksUpdated,
     onTaskStatusChanged,
     onExecutionLog,
     onBuildStatusChanged,
     onRunnerQuestions,
+    onStreamState,
   })
 
   // Reset terminal when no build is selected.
   useEffect(() => {
     if (!selectedBuildId) {
       terminal.clear()
-      setHasLogs(false)
       return undefined
     }
     return undefined
@@ -205,7 +249,12 @@ function TaskBoard() {
       message,
       timestamp: new Date().toISOString(),
     })
-    setHasLogs(true)
+    if (selectedBuildId) {
+      setHasLogsByBuild(prev => {
+        if (prev[selectedBuildId]) return prev
+        return { ...prev, [selectedBuildId]: true }
+      })
+    }
   }
 
   const handleAddCardClose = (build) => {
@@ -561,7 +610,12 @@ function TaskBoard() {
       setShowSidebar(false)
       setSelectedBuildId('')
       terminal.clear()
-      setHasLogs(false)
+      setHasLogsByBuild(prev => {
+        if (!prev[buildId]) return prev
+        const next = { ...prev }
+        delete next[buildId]
+        return next
+      })
       setBuildDocs({})
     } catch (err) {
       addLog('error', `Delete failed: ${err.message}`)
@@ -572,7 +626,6 @@ function TaskBoard() {
     // Only clear logs when switching to a different build
     if (buildId !== selectedBuildId) {
       terminal.clear()
-      setHasLogs(false)
       setPendingQuestions([])
     }
     setSelectedBuildId(buildId)
@@ -585,12 +638,12 @@ function TaskBoard() {
   )
   const effectivePendingQuestions = useMemo(() => {
     if (pendingQuestions.length > 0) return pendingQuestions
-    const fromBuild = Array.isArray(selectedBuild?.openQuestions)
-      ? selectedBuild.openQuestions.filter(Boolean)
-      : []
+    const fromBuild = Array.isArray(selectedBuild?.needsInputQuestions) && selectedBuild.needsInputQuestions.length > 0
+      ? selectedBuild.needsInputQuestions.filter(Boolean)
+      : (Array.isArray(selectedBuild?.openQuestions) ? selectedBuild.openQuestions.filter(Boolean) : [])
     if (fromBuild.length === 0) return []
     return [{
-      phase: 'planning',
+      phase: selectedBuild?.needsInputPhase || 'planning',
       taskId: null,
       questions: fromBuild,
       timestamp: new Date().toISOString(),
@@ -604,6 +657,7 @@ function TaskBoard() {
   )
 
   const isSelectedBuildPlanning = selectedBuildId ? planningBuilds.has(selectedBuildId) : false
+  const selectedHasLogs = selectedBuildId ? Boolean(hasLogsByBuild[selectedBuildId]) : false
 
   if (loading) {
     return <p className="text-text-muted">Loading board...</p>
@@ -690,7 +744,7 @@ function TaskBoard() {
           >
             <ExecutionView
               terminal={terminal}
-              hasLogs={hasLogs}
+              hasLogs={selectedHasLogs}
               onClose={() => setShowSidebar(false)}
               onDelete={handleDeleteBuild}
               onSaveDoc={handleSaveDoc}

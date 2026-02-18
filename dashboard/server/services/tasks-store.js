@@ -643,6 +643,25 @@ function normalizeBuildStatus(status) {
   return VALID_BUILD_STATUSES.has(value) ? value : 'pending';
 }
 
+function normalizeOpenQuestions(meta) {
+  return Array.isArray(meta?.openQuestions)
+    ? meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean)
+    : [];
+}
+
+function normalizeNeedsInput(meta) {
+  const phase = String(meta?.needsInput?.phase || '').trim().toLowerCase();
+  const questions = Array.isArray(meta?.needsInput?.questions)
+    ? meta.needsInput.questions.map(q => String(q || '').trim()).filter(Boolean)
+    : normalizeOpenQuestions(meta);
+  if (questions.length === 0) return null;
+  return {
+    phase: phase || 'planning',
+    questions,
+    updatedAt: meta?.needsInput?.updatedAt || meta?.plannedAt || meta?.createdAt || new Date().toISOString(),
+  };
+}
+
 function validateBuildTransition(currentStatus, newStatus) {
   const allowed = VALID_TRANSITIONS[currentStatus] || [];
   if (!allowed.includes(newStatus)) {
@@ -705,11 +724,13 @@ async function listBuilds() {
     if (!meta?.status && totalTasks > 0) {
       buildStatus = 'planning';
     }
-    if (
-      buildStatus === 'blocked' &&
-      Array.isArray(meta?.openQuestions) &&
-      meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean).length > 0
-    ) {
+    const needsInput = normalizeNeedsInput(meta);
+    const directOpenQuestions = normalizeOpenQuestions(meta);
+    const openQuestions = directOpenQuestions.length > 0
+      ? directOpenQuestions
+      : (needsInput?.phase === 'planning' ? (needsInput.questions || []) : []);
+
+    if (buildStatus === 'blocked' && (openQuestions.length > 0 || needsInput?.phase === 'planning')) {
       buildStatus = 'planning';
     }
 
@@ -726,15 +747,13 @@ async function listBuilds() {
       gitEnabled: meta?.gitEnabled || false,
       prUrl: meta?.prUrl || null,
       prNumber: meta?.prNumber || null,
-      openQuestions: Array.isArray(meta?.openQuestions)
-        ? meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean)
-        : [],
-      openQuestionsCount: Array.isArray(meta?.openQuestions)
-        ? meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean).length
-        : 0,
-      hasOpenQuestions: Array.isArray(meta?.openQuestions)
-        ? meta.openQuestions.map(q => String(q || '').trim()).filter(Boolean).length > 0
-        : false,
+      openQuestions,
+      openQuestionsCount: openQuestions.length,
+      hasOpenQuestions: openQuestions.length > 0,
+      needsInput: Boolean(needsInput),
+      needsInputPhase: needsInput?.phase || '',
+      needsInputQuestions: needsInput?.questions || [],
+      needsInputUpdatedAt: needsInput?.updatedAt || null,
     });
   }
 
@@ -838,6 +857,7 @@ async function createBuild({ description, buildType, customType }) {
     prUrl: null,
     prNumber: null,
     openQuestions: [],
+    needsInput: null,
   };
   await writeBuildMeta(buildId, meta);
 
@@ -880,6 +900,7 @@ async function planBuild(buildId) {
   meta.status = 'planning';
   meta.plannedAt = new Date().toISOString();
   meta.openQuestions = [];
+  meta.needsInput = null;
   await writeBuildMeta(buildId, meta);
 
   const parsed = await getTasks(buildId);
@@ -903,6 +924,9 @@ async function updateBuildStatus(buildId, newStatus, { validate = true } = {}) {
       validateBuildTransition(meta.status, normalized);
     }
     meta.status = normalized;
+    if (normalized !== 'planning') {
+      meta.needsInput = null;
+    }
   });
 
   return { buildId, status: normalized };

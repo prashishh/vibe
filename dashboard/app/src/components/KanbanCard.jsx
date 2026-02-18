@@ -30,7 +30,12 @@ function KanbanCard({ build, selected, onSelect, isPlanning, onAction }) {
     : build.buildType === 'vibe'
     ? 'bg-warning/10 text-warning'
     : 'bg-info/10 text-info'
-  const hasOpenQuestions = Boolean(build.hasOpenQuestions || (build.openQuestionsCount || 0) > 0)
+  const hasOpenQuestions = Boolean(
+    build.needsInput ||
+    build.hasOpenQuestions ||
+    (build.openQuestionsCount || 0) > 0 ||
+    (build.needsInputQuestions || []).length > 0
+  )
 
   return (
     <div

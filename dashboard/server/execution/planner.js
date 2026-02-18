@@ -457,6 +457,8 @@ async function runPlanning({ buildId, eventBus }) {
   const buildType = meta.buildType || 'lite';
   const description = meta.description || '';
   const projectRoot = meta.projectRoot || process.cwd();
+  const processId = `planning-${buildId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+  let chunkIndex = 0;
 
   const { skill, label } = skillForBuildType(buildType);
 
@@ -492,11 +494,16 @@ async function runPlanning({ buildId, eventBus }) {
   const isStreamJson = injectStreamFlags(runnerName, cmdArgs);
 
   const log = (stream, message) => {
+    chunkIndex += 1;
     eventBus.broadcast(buildId, 'execution-log', {
       buildId,
       taskId: null,
       stream,
       message,
+      processId,
+      processType: 'planning',
+      phase: 'planning',
+      chunkIndex,
       timestamp: new Date().toISOString(),
     });
   };
@@ -670,6 +677,11 @@ async function runPlanning({ buildId, eventBus }) {
           meta.plannedAt = new Date().toISOString();
           meta.blockedReason = '';
           meta.openQuestions = questions;
+          meta.needsInput = {
+            phase: 'planning',
+            questions,
+            updatedAt: new Date().toISOString(),
+          };
           await writeBuildMeta(buildId, meta);
 
           // Emit a dedicated event so the UI can auto-expand the chat with context
@@ -699,6 +711,7 @@ async function runPlanning({ buildId, eventBus }) {
         meta.plannedAt = new Date().toISOString();
         meta.blockedReason = '';
         meta.openQuestions = [];
+        meta.needsInput = null;
         await writeBuildMeta(buildId, meta);
 
         log('success', `Planning complete for ${buildId}. Ready to move to In Progress.`);

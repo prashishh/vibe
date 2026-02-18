@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
-const MAX_LINES = 50000
+const MAX_LINES = 200000
+const MAX_PENDING_ENTRIES = 5000
 
 const STREAM_COLORS = {
   stderr:  '#e8543e',
@@ -117,6 +118,9 @@ export function useTerminalOutput() {
     const el = containerRef.current
     if (!el) {
       pendingEntriesRef.current.push(logEntry)
+      if (pendingEntriesRef.current.length > MAX_PENDING_ENTRIES) {
+        pendingEntriesRef.current.splice(0, pendingEntriesRef.current.length - MAX_PENDING_ENTRIES)
+      }
       return
     }
     appendToElement(el, logEntry)

@@ -7,6 +7,7 @@ const MAX_RETRY_DELAY = 30000
 export function useSSE(buildId, handlers = {}) {
   const retriesRef = useRef(0)
   const handlersRef = useRef(handlers)
+  const lastEventIdRef = useRef('')
 
   // Keep handlers ref up-to-date without triggering reconnection
   useEffect(() => {
@@ -19,15 +20,29 @@ export function useSSE(buildId, handlers = {}) {
     let source = null
     let retryTimer = null
     let closed = false
+    lastEventIdRef.current = ''
 
     function connect() {
       if (closed) return
 
-      source = new EventSource(`${API_BASE}/api/execution/stream/${buildId}`)
+      const replayParam = lastEventIdRef.current
+        ? `?lastEventId=${encodeURIComponent(lastEventIdRef.current)}`
+        : ''
+      source = new EventSource(`${API_BASE}/api/execution/stream/${buildId}${replayParam}`)
 
       // Reset retry count on successful connection
-      source.addEventListener('connected', () => {
+      source.addEventListener('connected', (event) => {
         retriesRef.current = 0
+        const handler = handlersRef.current.onConnected
+        if (typeof handler === 'function') {
+          let data = null
+          try {
+            data = JSON.parse(event.data)
+          } catch {
+            data = event.data
+          }
+          handler(data)
+        }
       })
 
       const eventNames = [
@@ -38,10 +53,15 @@ export function useSSE(buildId, handlers = {}) {
         ['task-status-changed', 'onTaskStatusChanged'],
         ['build-status-changed', 'onBuildStatusChanged'],
         ['runner-questions', 'onRunnerQuestions'],
+        ['stream-state', 'onStreamState'],
+        ['heartbeat', 'onHeartbeat'],
       ]
 
       for (const [eventName, handlerKey] of eventNames) {
         source.addEventListener(eventName, (event) => {
+          if (event?.lastEventId) {
+            lastEventIdRef.current = event.lastEventId
+          }
           const handler = handlersRef.current[handlerKey]
           if (typeof handler !== 'function') return
           let data = null

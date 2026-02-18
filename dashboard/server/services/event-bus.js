@@ -4,6 +4,7 @@ const { resolveBuildsRoot } = require('./tasks-store');
 
 const MAX_RECENT_EVENTS_PER_BUILD = 2000;
 const MAX_REPLAY_LOG_LINES = 20000;
+const MAX_RUN_ID_LEN = 120;
 
 class EventBus {
   constructor() {
@@ -39,6 +40,10 @@ class EventBus {
     }
   }
 
+  getLastEventId(buildId) {
+    return this.eventSeqByBuild.get(buildId) || 0;
+  }
+
   replayForClient(client, { lastEventId } = {}) {
     if (!client) return { replayedEvents: 0, replayedLogs: 0 };
 
@@ -49,8 +54,33 @@ class EventBus {
     let replayedLogs = 0;
 
     if (parsedLastEventId !== null) {
+      let replayedFromRecent = 0;
       for (const item of recent) {
         if (item.id <= parsedLastEventId) continue;
+        if (this.sendToClient(client, item.event, item.payload, item.id)) {
+          replayedEvents += 1;
+          replayedFromRecent += 1;
+        }
+      }
+
+      if (replayedFromRecent > 0) {
+        return { replayedEvents, replayedLogs };
+      }
+
+      // If the client sent a stale Last-Event-ID (e.g. server restart reset in-memory sequence),
+      // fall back to persisted logs + recent non-log events so Live Output does not go blank.
+      replayedLogs = this._replayPersistedLogs(client);
+      if (replayedLogs === 0) {
+        for (const item of recent) {
+          if (this.sendToClient(client, item.event, item.payload, item.id)) {
+            replayedEvents += 1;
+          }
+        }
+        return { replayedEvents, replayedLogs };
+      }
+
+      for (const item of recent) {
+        if (item.event === 'execution-log') continue;
         if (this.sendToClient(client, item.event, item.payload, item.id)) {
           replayedEvents += 1;
         }
@@ -108,7 +138,10 @@ class EventBus {
 
     // Persist execution-log events to disk for resilience across page refreshes
     if (event === 'execution-log' && buildId && payload && payload.message !== undefined && payload.message !== null) {
-      this._appendLog(buildId, payload);
+      this._appendLog(buildId, payload, eventId);
+      if (payload.processId) {
+        this._appendProcessLog(buildId, payload.processId, payload, eventId);
+      }
     }
   }
 
@@ -128,21 +161,59 @@ class EventBus {
    * Uses JSONL (one JSON object per line) for easy parsing.
    * Non-blocking — errors are silently ignored to avoid disrupting SSE.
    */
-  _appendLog(buildId, payload) {
+  _appendLog(buildId, payload, eventId = null) {
     try {
       const dir = path.join(resolveBuildsRoot(), buildId);
       fs.mkdirSync(dir, { recursive: true });
       const logFile = path.join(dir, 'LOG.jsonl');
       const entry = {
+        eventId,
         ts: payload.timestamp || new Date().toISOString(),
         stream: payload.stream || 'log',
         taskId: payload.taskId || null,
+        processId: payload.processId || null,
+        processType: payload.processType || '',
+        phase: payload.phase || '',
+        chunkIndex: Number.isFinite(payload.chunkIndex) ? payload.chunkIndex : null,
         message: String(payload.message || ''),
       };
       // Non-blocking append
       fs.appendFile(logFile, JSON.stringify(entry) + '\n', 'utf8', () => {});
     } catch {
       // Silently ignore — log persistence is best-effort
+    }
+  }
+
+  _sanitizeRunId(value) {
+    const clean = String(value || '').trim().replace(/[^A-Za-z0-9._-]/g, '_');
+    if (!clean) return '';
+    return clean.slice(0, MAX_RUN_ID_LEN);
+  }
+
+  _appendProcessLog(buildId, processId, payload, eventId) {
+    try {
+      const safeRunId = this._sanitizeRunId(processId);
+      if (!safeRunId) return;
+
+      const root = path.join(resolveBuildsRoot(), buildId, 'runs');
+      fs.mkdirSync(root, { recursive: true });
+      const filePath = path.join(root, `${safeRunId}.jsonl`);
+
+      const entry = {
+        eventId,
+        processId: safeRunId,
+        processType: payload.processType || '',
+        phase: payload.phase || '',
+        chunkIndex: Number.isFinite(payload.chunkIndex) ? payload.chunkIndex : null,
+        ts: payload.timestamp || new Date().toISOString(),
+        taskId: payload.taskId || null,
+        stream: payload.stream || 'log',
+        message: String(payload.message || ''),
+      };
+
+      fs.appendFile(filePath, JSON.stringify(entry) + '\n', 'utf8', () => {});
+    } catch {
+      // best-effort persistence only
     }
   }
 
@@ -207,6 +278,10 @@ class EventBus {
           taskId: entry.taskId || null,
           stream: entry.stream || 'log',
           message: String(entry.message || ''),
+          processId: entry.processId || null,
+          processType: entry.processType || '',
+          phase: entry.phase || '',
+          chunkIndex: Number.isFinite(entry.chunkIndex) ? entry.chunkIndex : null,
           timestamp: entry.ts || new Date().toISOString(),
         };
 

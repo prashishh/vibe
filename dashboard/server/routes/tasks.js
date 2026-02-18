@@ -1,4 +1,6 @@
 const express = require('express');
+const fsPromises = require('fs/promises');
+const path = require('path');
 const {
   listBuilds,
   assistBuild,
@@ -17,6 +19,7 @@ const {
   writeBuildMeta,
   lockAndWriteMeta,
   resolveProjectRoot,
+  buildDirPath,
 } = require('../services/tasks-store');
 const gitService = require('../services/git-service');
 const { buildTaskFromPrompt } = require('../llm/client');
@@ -181,9 +184,11 @@ function createTaskRouter(eventBus) {
 
       const result = await runFeedback({ buildId, message, eventBus });
       const meta = await readBuildMeta(buildId);
+      const openQuestions = Array.isArray(meta?.openQuestions) ? meta.openQuestions : [];
+      const hasNeedsInput = Array.isArray(meta?.needsInput?.questions) && meta.needsInput.questions.length > 0;
 
       // Clear open questions once user answers via chat.
-      if (Array.isArray(meta?.openQuestions) && meta.openQuestions.length > 0) {
+      if (openQuestions.length > 0 || hasNeedsInput) {
         let nextStatus = meta?.status || 'planning';
         if (meta?.status === 'blocked' && /planning needs clarification/i.test(meta?.blockedReason || '')) {
           await updateBuildStatus(buildId, 'planning', { validate: false });
@@ -191,6 +196,7 @@ function createTaskRouter(eventBus) {
         }
         await lockAndWriteMeta(buildId, (m) => {
           m.openQuestions = [];
+          m.needsInput = null;
           if (/planning needs clarification/i.test(m.blockedReason || '')) {
             m.blockedReason = '';
           }
@@ -199,7 +205,7 @@ function createTaskRouter(eventBus) {
           buildId,
           taskId: null,
           stream: 'success',
-          message: 'Clarifications received. Open questions cleared.',
+          message: 'Clarifications received. Needs-input state cleared.',
           timestamp: new Date().toISOString(),
         });
         eventBus.broadcast(buildId, 'build-status-changed', {
@@ -382,9 +388,7 @@ function createTaskRouter(eventBus) {
   router.get('/builds/:buildId/logs', async (req, res) => {
     try {
       const { buildId } = req.params;
-      const { buildDirPath } = require('../services/tasks-store');
-      const fsPromises = require('fs/promises');
-      const logFile = require('path').join(buildDirPath(buildId), 'LOG.jsonl');
+      const logFile = path.join(buildDirPath(buildId), 'LOG.jsonl');
 
       let lines = [];
       try {
@@ -397,6 +401,69 @@ function createTaskRouter(eventBus) {
       }
 
       return res.json({ buildId, logs: lines });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Process-level logs — persisted incremental stdout/stderr chunks grouped by processId
+  router.get('/builds/:buildId/process-logs', async (req, res) => {
+    try {
+      const { buildId } = req.params;
+      const runId = String(req.query?.runId || '').trim();
+      const limitRaw = Number.parseInt(String(req.query?.limit || '5000'), 10);
+      const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 50000)) : 5000;
+      const runsDir = path.join(buildDirPath(buildId), 'runs');
+
+      let fileNames = [];
+      try {
+        const entries = await fsPromises.readdir(runsDir, { withFileTypes: true });
+        fileNames = entries
+          .filter(entry => entry.isFile() && entry.name.endsWith('.jsonl'))
+          .map(entry => entry.name);
+      } catch {
+        return res.json({ buildId, runId: runId || null, logs: [] });
+      }
+
+      if (runId) {
+        const safe = runId.replace(/[^A-Za-z0-9._-]/g, '_');
+        fileNames = fileNames.filter(name => name === `${safe}.jsonl`);
+      }
+
+      const logs = [];
+      for (const fileName of fileNames.sort()) {
+        const filePath = path.join(runsDir, fileName);
+        let raw = '';
+        try {
+          raw = await fsPromises.readFile(filePath, 'utf8');
+        } catch {
+          continue;
+        }
+
+        const lines = raw.split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            logs.push(JSON.parse(line));
+          } catch {
+            // ignore malformed lines
+          }
+        }
+      }
+
+      logs.sort((a, b) => {
+        const ta = Date.parse(a?.ts || '');
+        const tb = Date.parse(b?.ts || '');
+        if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb;
+        return Number(a?.eventId || 0) - Number(b?.eventId || 0);
+      });
+
+      const tail = logs.slice(-limit);
+      return res.json({
+        buildId,
+        runId: runId || null,
+        logs: tail,
+        total: logs.length,
+      });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

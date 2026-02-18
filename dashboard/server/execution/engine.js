@@ -4,7 +4,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const chokidar = require('chokidar');
-const { updateTask, getTasks, readBuildMeta, updateBuildStatus, updateTaskMeta, resolveProjectRoot } = require('../services/tasks-store');
+const { updateTask, getTasks, readBuildMeta, updateBuildStatus, updateTaskMeta, resolveProjectRoot, lockAndWriteMeta } = require('../services/tasks-store');
 const gitService = require('../services/git-service');
 const { createStreamProcessor } = require('./stream-parser');
 
@@ -308,6 +308,8 @@ class ExecutionEngine {
     try {
       const meta = await readBuildMeta(buildId);
       if (!meta || meta.status !== 'in_progress') return;
+      const hasNeedsInput = Array.isArray(meta?.needsInput?.questions) && meta.needsInput.questions.length > 0;
+      if (hasNeedsInput) return;
 
       const parsed = await getTasks(buildId);
       const tasks = parsed.tasks || [];
@@ -417,6 +419,8 @@ class ExecutionEngine {
   async startCommandRun({ buildId, taskId, command, cwd, handoffPrompt, isStreamJson, runnerName }) {
     const key = this.key(buildId, taskId);
     const startedAt = new Date().toISOString();
+    const processId = `task-${buildId}-${taskId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+    let chunkIndex = 0;
     let execCwd = cwd || process.env.VIBE_PROJECT_PATH || process.cwd();
 
     // ── Git Worktree Isolation ──────────────────────────────────────────────
@@ -437,6 +441,10 @@ class ExecutionEngine {
           taskId,
           stream: 'system',
           message: `Worktree: .vibe/worktrees/${buildId}/${taskId}/`,
+          processId,
+          processType: 'task-execution',
+          phase: 'execution',
+          chunkIndex: ++chunkIndex,
           timestamp: new Date().toISOString(),
         });
 
@@ -448,6 +456,10 @@ class ExecutionEngine {
         taskId,
         stream: 'warning',
         message: `Worktree setup failed, using project root: ${gitErr.message}`,
+        processId,
+        processType: 'task-execution',
+        phase: 'execution',
+        chunkIndex: ++chunkIndex,
         timestamp: new Date().toISOString(),
       });
       // Fall through with original execCwd
@@ -475,11 +487,16 @@ class ExecutionEngine {
     const watcher = this.startWatcher(buildId, taskId, execCwd);
 
     const pushLog = (message, stream = 'stdout') => {
+      chunkIndex += 1;
       this.eventBus.broadcast(buildId, 'execution-log', {
         buildId,
         taskId,
         message,
         stream,
+        processId,
+        processType: 'task-execution',
+        phase: 'execution',
+        chunkIndex,
         timestamp: new Date().toISOString(),
       });
 
@@ -542,13 +559,37 @@ class ExecutionEngine {
       // Detect questions in task output and notify the UI
       const questions = extractQuestions(fullStdout);
       if (questions.length > 0) {
+        try {
+          await lockAndWriteMeta(buildId, (meta) => {
+            meta.needsInput = {
+              phase: 'execution',
+              taskId,
+              questions,
+              updatedAt: new Date().toISOString(),
+            };
+          });
+        } catch (metaErr) {
+          console.warn(`Failed to persist execution needs-input for ${buildId}/${taskId}:`, metaErr.message);
+        }
+
         this.eventBus.broadcast(buildId, 'runner-questions', {
           buildId,
           taskId,
           phase: 'execution',
+          processId,
           questions,
           timestamp: new Date().toISOString(),
         });
+      } else {
+        try {
+          await lockAndWriteMeta(buildId, (meta) => {
+            if (meta?.needsInput?.phase === 'execution' && meta?.needsInput?.taskId === taskId) {
+              meta.needsInput = null;
+            }
+          });
+        } catch {
+          // best effort
+        }
       }
 
       await this.complete(buildId, taskId, status, extra);
