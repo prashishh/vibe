@@ -529,6 +529,7 @@ async function runPlanning({ buildId, eventBus }) {
       runnerName,
       isStreamJson,
       onText: (delta) => log('stdout', delta),
+      onChunk: (delta, streamType) => log(streamType || 'stdout', delta),
       onError: (msg) => log('error', msg),
     });
 

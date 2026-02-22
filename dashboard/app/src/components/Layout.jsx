@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
-  { to: '/', label: 'Board' },
+  { to: '/', label: 'Builds' },
   { to: '/guards', label: 'Guards' },
   { to: '/commands', label: 'Commands' },
   { to: '/framework', label: 'Framework' },
@@ -11,12 +11,12 @@ const navItems = [
 
 function Layout() {
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="border-b-2 border-border bg-surface sticky top-0 z-10" style={{ boxShadow: '0 1px 4px rgba(44, 24, 16, 0.06)' }}>
-        <div className="max-w-[1440px] mx-auto px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-surface flex flex-col">
+      <header className="border-b border-border bg-surface-alt sticky top-0 z-10" style={{ boxShadow: '0 1px 4px rgba(0, 0, 0, 0.2)' }}>
+        <div className="px-6 py-4 flex items-center justify-between">
           <NavLink to="/" className="flex items-center gap-3 no-underline">
             <div className="text-2xl">
-              🦜
+              {'\uD83E\uDD9C'}
             </div>
             <div>
               <h1 className="text-lg font-semibold text-text-primary">
@@ -47,7 +47,7 @@ function Layout() {
         </div>
       </header>
 
-      <main className="max-w-[1440px] mx-auto px-6 py-8">
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
     </div>

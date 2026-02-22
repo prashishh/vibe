@@ -11,6 +11,10 @@ const STREAM_COLORS = {
   warning: '#fbbf24',
   stdout:  '#f0e6d9',
   log:     '#8a7b6f',
+  'user-message':      '#818cf8',
+  'assistant-message':  '#34d399',
+  'error-message':      '#f87171',
+  question:             '#fbbf24',
 }
 
 /**
@@ -34,10 +38,37 @@ export function useTerminalOutput() {
 
   const createLineElement = useCallback((stream, initialText) => {
     const div = document.createElement('div')
-    div.className = 'mb-1'
     div.dataset.stream = stream
 
     const color = STREAM_COLORS[stream] || STREAM_COLORS.log
+
+    // Chat messages get special formatting
+    if (stream === 'user-message') {
+      div.className = 'my-2 py-1.5 px-3 rounded-lg'
+      div.style.cssText = `color: ${color}; background: rgba(99,102,241,0.1); border-left: 3px solid ${color};`
+      div.textContent = `▸ ${initialText}`
+      return div
+    }
+    if (stream === 'assistant-message') {
+      div.className = 'my-2 py-1.5 px-3 rounded-lg'
+      div.style.cssText = `color: ${color}; background: rgba(52,211,153,0.08); border-left: 3px solid ${color};`
+      div.textContent = `◂ ${initialText}`
+      return div
+    }
+    if (stream === 'error-message') {
+      div.className = 'my-2 py-1.5 px-3 rounded-lg'
+      div.style.cssText = `color: ${color}; background: rgba(248,113,113,0.08); border-left: 3px solid ${color};`
+      div.textContent = `✗ ${initialText}`
+      return div
+    }
+    if (stream === 'question') {
+      div.className = 'my-1 py-1 px-3 rounded'
+      div.style.cssText = `color: ${color}; background: rgba(251,191,36,0.08); border-left: 3px solid ${color};`
+      div.textContent = `? ${initialText}`
+      return div
+    }
+
+    div.className = 'mb-1'
     const prefix = stream === 'stdout' ? '' : `[${stream}] `
     div.style.color = color
     div.textContent = `${prefix}${initialText}`

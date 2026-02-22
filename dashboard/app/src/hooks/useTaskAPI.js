@@ -200,6 +200,17 @@ export function useTaskAPI(buildId) {
     return data.result
   }, [])
 
+  const fetchChatHistory = useCallback(async (targetBuildId) => {
+    const id = targetBuildId || buildId
+    if (!id) return []
+    try {
+      const data = await request(`/api/tasks/builds/${id}/chat`)
+      return data.messages || []
+    } catch {
+      return []
+    }
+  }, [buildId])
+
   const saveDoc = useCallback(async (targetBuildId, docName, content) => {
     const id = targetBuildId || buildId
     if (!id) throw new Error('No build selected')
@@ -239,6 +250,7 @@ export function useTaskAPI(buildId) {
     fetchDocs,
     saveDoc,
     sendChat,
+    fetchChatHistory,
   }), [
     builds,
     tasks,
@@ -262,6 +274,7 @@ export function useTaskAPI(buildId) {
     fetchDocs,
     saveDoc,
     sendChat,
+    fetchChatHistory,
   ])
 
   return value

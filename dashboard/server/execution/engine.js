@@ -517,6 +517,7 @@ class ExecutionEngine {
       runnerName: runnerName || '',
       isStreamJson: isStreamJson || false,
       onText: (delta) => pushLog(delta, 'stdout'),
+      onChunk: (delta, streamType) => pushLog(delta, streamType || 'stdout'),
       onError: (msg) => pushLog(msg, 'error'),
     });
 

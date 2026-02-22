@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const fsPromises = require('fs/promises');
 const path = require('path');
 const {
@@ -174,6 +175,26 @@ function createTaskRouter(eventBus) {
     }
   });
 
+  // ── Chat history ──────────────────────────────────────────────────────────
+  router.get('/builds/:buildId/chat', async (req, res) => {
+    try {
+      const { buildId } = req.params;
+      const chatFile = path.join(buildDirPath(buildId), 'CHAT.jsonl');
+      let messages = [];
+      try {
+        const raw = await fsPromises.readFile(chatFile, 'utf8');
+        messages = raw.trim().split('\n').filter(Boolean).map(line => {
+          try { return JSON.parse(line); } catch { return null; }
+        }).filter(Boolean);
+      } catch {
+        // No chat file yet — return empty
+      }
+      return res.json({ buildId, messages });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  });
+
   router.post('/builds/:buildId/chat', async (req, res) => {
     try {
       const { buildId } = req.params;
@@ -182,7 +203,32 @@ function createTaskRouter(eventBus) {
         return res.status(400).json({ error: 'Message is required' });
       }
 
+      // Emit structured chat-message for the user's message
+      const userMsgId = `msg-user-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+      eventBus.broadcast(buildId, 'chat-message', {
+        id: userMsgId,
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString(),
+        activity: [],
+      });
+
       const result = await runFeedback({ buildId, message, eventBus });
+
+      // Emit structured chat-message for the assistant's response
+      const assistantMsgId = `msg-asst-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+      const updatedFiles = result.updatedFiles || [];
+      const assistantContent = updatedFiles.length > 0
+        ? `Updated ${updatedFiles.map(f => `**${f}**`).join(', ')}.`
+        : 'No changes needed.';
+      eventBus.broadcast(buildId, 'chat-message', {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: assistantContent,
+        timestamp: new Date().toISOString(),
+        activity: result.activity || [],
+      });
+
       const meta = await readBuildMeta(buildId);
       const openQuestions = Array.isArray(meta?.openQuestions) ? meta.openQuestions : [];
       const hasNeedsInput = Array.isArray(meta?.needsInput?.questions) && meta.needsInput.questions.length > 0;

@@ -25,7 +25,7 @@ function BuildDetail() {
 
   if (!build) {
     return (
-      <div className="text-center py-16">
+      <div className="max-w-[1440px] mx-auto px-6 py-8 text-center">
         <p className="text-lg text-text-muted">Build {version} not found.</p>
         <Link to="/" className="text-accent-hover hover:underline mt-4 inline-block">
           Back to dashboard
@@ -43,7 +43,7 @@ function BuildDetail() {
   })
 
   return (
-    <div>
+    <div className="max-w-[1440px] mx-auto px-6 py-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-6 text-sm">
         <Link to="/" className="text-text-muted hover:text-text-primary transition-colors no-underline">

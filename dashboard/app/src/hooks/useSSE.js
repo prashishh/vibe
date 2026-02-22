@@ -55,6 +55,7 @@ export function useSSE(buildId, handlers = {}) {
         ['runner-questions', 'onRunnerQuestions'],
         ['stream-state', 'onStreamState'],
         ['heartbeat', 'onHeartbeat'],
+        ['chat-message', 'onChatMessage'],
       ]
 
       for (const [eventName, handlerKey] of eventNames) {

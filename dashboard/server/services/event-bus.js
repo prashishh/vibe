@@ -143,6 +143,11 @@ class EventBus {
         this._appendProcessLog(buildId, payload.processId, payload, eventId);
       }
     }
+
+    // Persist chat-message events to CHAT.jsonl for conversation history
+    if (event === 'chat-message' && buildId && payload) {
+      this._appendChatMessage(buildId, payload);
+    }
   }
 
   heartbeat() {
@@ -181,6 +186,28 @@ class EventBus {
       fs.appendFile(logFile, JSON.stringify(entry) + '\n', 'utf8', () => {});
     } catch {
       // Silently ignore — log persistence is best-effort
+    }
+  }
+
+  /**
+   * Append a chat message to .vibe/builds/<buildId>/CHAT.jsonl
+   * Parallel to LOG.jsonl but for structured conversation messages.
+   */
+  _appendChatMessage(buildId, message) {
+    try {
+      const dir = path.join(resolveBuildsRoot(), buildId);
+      fs.mkdirSync(dir, { recursive: true });
+      const chatFile = path.join(dir, 'CHAT.jsonl');
+      const entry = {
+        id: message.id || `msg-${Date.now()}`,
+        role: message.role || 'system',
+        content: String(message.content || ''),
+        timestamp: message.timestamp || new Date().toISOString(),
+        activity: Array.isArray(message.activity) ? message.activity : [],
+      };
+      fs.appendFile(chatFile, JSON.stringify(entry) + '\n', 'utf8', () => {});
+    } catch {
+      // best-effort persistence
     }
   }
 

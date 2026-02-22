@@ -110,6 +110,7 @@ async function runFeedback({ buildId, message, eventBus }) {
   const projectRoot = meta.projectRoot || process.cwd();
   const processId = `feedback-${buildId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
   let chunkIndex = 0;
+  const activityItems = [];
 
   // Build the feedback prompt with all docs as context
   const feedbackPrompt = buildFeedbackPrompt({
@@ -143,6 +144,7 @@ async function runFeedback({ buildId, message, eventBus }) {
 
   const log = (stream, msg) => {
     chunkIndex += 1;
+    const ts = new Date().toISOString();
     eventBus.broadcast(buildId, 'execution-log', {
       buildId,
       taskId: null,
@@ -152,14 +154,20 @@ async function runFeedback({ buildId, message, eventBus }) {
       processType: 'feedback',
       phase: 'feedback',
       chunkIndex,
-      timestamp: new Date().toISOString(),
+      timestamp: ts,
     });
+
+    // Collect structured activity items for the chat message
+    if (stream === 'system' && typeof msg === 'string' && msg.startsWith('\n\u2500\u2500')) {
+      activityItems.push({ type: 'tool-use', detail: msg.trim(), timestamp: ts });
+    } else if (stream === 'success' && typeof msg === 'string' && msg.includes('$')) {
+      activityItems.push({ type: 'cost', detail: msg.trim(), timestamp: ts });
+    } else if (stream === 'error' || stream === 'stderr') {
+      activityItems.push({ type: 'error', detail: String(msg).trim(), timestamp: ts });
+    }
   };
 
-  log('system', `Processing feedback for ${buildId} with ${runnerName}...`);
-  if (modelPref) log('system', `Model: ${modelPref}`);
-  log('system', `Feedback: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
-  log('system', '');
+  log('system', `Running feedback with ${runnerName}...`);
 
   // Spawn: cat <promptFile> | <runner> <flags>
   const shellCmd = `cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
@@ -171,10 +179,13 @@ async function runFeedback({ buildId, message, eventBus }) {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    // Stream all runner output to the terminal — same pattern as runPlanning.
+    // The user sees the full CLI output just like in Claude Code or Codex terminal.
     const stream = createStreamProcessor({
       runnerName,
       isStreamJson,
       onText: (delta) => log('stdout', delta),
+      onChunk: (delta, streamType) => log(streamType || 'stdout', delta),
       onError: (msg) => log('error', msg),
     });
 
@@ -209,9 +220,6 @@ async function runFeedback({ buildId, message, eventBus }) {
       }
 
       try {
-        log('system', '');
-        log('system', 'Parsing feedback output...');
-
         // Parse the output into file blocks
         const fileBlocks = parseFileBlocks(fullOutput);
         const dir = buildDirPath(buildId);
@@ -223,18 +231,21 @@ async function runFeedback({ buildId, message, eventBus }) {
           const filePath = path.join(dir, fileName);
           await fs.writeFile(filePath, content, 'utf8');
           updatedFiles.push(fileName);
-          log('success', `Updated ${fileName}`);
         }
 
         if (updatedFiles.length === 0) {
-          log('warning', 'No file changes were parsed from the runner output.');
+          log('system', 'No changes needed.');
         } else {
-          log('success', `Feedback applied: ${updatedFiles.length} file(s) updated.`);
+          log('success', `Updated ${updatedFiles.join(', ')}`);
+          for (const f of updatedFiles) {
+            activityItems.push({ type: 'file-updated', detail: f, timestamp: new Date().toISOString() });
+          }
         }
 
         resolve({
           buildId,
           updatedFiles,
+          activity: activityItems,
         });
       } catch (err) {
         log('error', `Failed to process feedback output: ${err.message}`);

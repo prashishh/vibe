@@ -71,7 +71,7 @@ function Guards() {
   }
 
   return (
-    <div>
+    <div className="max-w-[1440px] mx-auto px-6 py-8">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary mb-2">

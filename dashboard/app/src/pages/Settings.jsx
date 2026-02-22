@@ -147,7 +147,7 @@ function Settings() {
   const runners = exec.runners || {}
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 max-w-4xl mx-auto px-6 py-8">
       {/* Page header */}
       <div>
         <h2 className="text-xl font-bold text-text-primary">Settings</h2>

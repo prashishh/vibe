@@ -1,7 +1,7 @@
-import TaskBoard from '../components/TaskBoard.jsx'
+import AgentWorkspace from '../components/AgentWorkspace.jsx'
 
 function Dashboard() {
-  return <TaskBoard />
+  return <AgentWorkspace />
 }
 
 export default Dashboard
