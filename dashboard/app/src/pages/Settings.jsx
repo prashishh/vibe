@@ -22,13 +22,13 @@ const MODEL_PREFS = [
 
 const COMMON_MODELS = {
   claude: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
-  codex: ['o3', 'o4-mini', 'codex-mini'],
+  codex: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex-max', 'gpt-5.2', 'gpt-5.1-codex-mini'],
   gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
 }
 
 const RUNNER_DEFAULTS = {
   claude: { planning: 'claude-opus-4-6', execution: 'claude-sonnet-4-5-20250929', feedback: 'claude-sonnet-4-5-20250929', guards: 'claude-haiku-4-5-20251001' },
-  codex: { planning: 'o3', execution: 'codex-mini', feedback: 'o3', guards: 'o4-mini' },
+  codex: { planning: 'gpt-5.2', execution: 'gpt-5.1-codex-mini', feedback: 'gpt-5.2', guards: 'gpt-5.1-codex-mini' },
   gemini: { planning: 'gemini-2.5-pro', execution: 'gemini-2.5-flash', feedback: 'gemini-2.5-pro', guards: 'gemini-2.5-flash' },
 }
 
@@ -200,7 +200,7 @@ function Settings() {
         </div>
 
         <p className="text-[10px] text-text-muted -mt-2 leading-snug">
-          <em>Bypass All</em> skips all prompts (Claude: --dangerously-skip-permissions, Codex: --full-auto).
+          <em>Bypass All</em> skips all prompts (Claude: --dangerously-skip-permissions, Codex: --full-auto, Gemini: --yolo).
           {' '}<em>Auto-Accept Edits</em> lets file changes through but may still prompt for other things.
           {' '}<em>Default</em> uses the CLI&apos;s own permission flow.
         </p>
@@ -254,7 +254,7 @@ function Settings() {
                   <input
                     value={runner.commandTemplate || ''}
                     onChange={(e) => updateRunner(name, 'commandTemplate', e.target.value)}
-                    placeholder={`${name} --print "{{handoffPrompt}}"`}
+                    placeholder={name === 'claude' ? 'claude --print "{{handoffPrompt}}"' : name === 'codex' ? 'codex exec - "{{handoffPrompt}}"' : 'gemini -p "{{handoffPrompt}}"'}
                     className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />

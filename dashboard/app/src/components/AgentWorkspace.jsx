@@ -53,6 +53,7 @@ function AgentWorkspace() {
     patchTask,
     startExecution,
     cancelExecution,
+    cancelProcess,
   } = useTaskAPI(selectedBuildId)
 
   // ── SSE handlers ────────────────────────────────────────────────────────────
@@ -616,6 +617,18 @@ function AgentWorkspace() {
     }
   }
 
+  const handleStopProcess = async () => {
+    if (!selectedBuildId) return
+    addLog('system', 'Stopping agent...')
+    try {
+      await cancelProcess(selectedBuildId)
+      setIsAgentThinking(false)
+      setLiveLines([])
+    } catch (err) {
+      addLog('error', `Stop failed: ${err.message}`)
+    }
+  }
+
   const handleSendChat = async (message) => {
     if (!selectedBuildId) return
     setPendingQuestions([])
@@ -997,6 +1010,7 @@ function AgentWorkspace() {
             onCommand={handleCommand}
             onGeneralChat={handleGeneralChat}
             isThinking={isAgentThinking}
+            onStopProcess={handleStopProcess}
             pendingQuestions={effectivePendingQuestions}
             isPlanning={isSelectedBuildPlanning}
             runningCount={runningCount}

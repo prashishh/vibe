@@ -1,3 +1,4 @@
+const path = require('path');
 const { readConfig } = require('../services/llm-config');
 const { injectRunnerFlags } = require('./runner-registry');
 const { injectStreamFlags } = require('./stream-parser');
@@ -88,6 +89,9 @@ async function resolveRunnerCommand({ buildId, task }) {
     ...Object.keys(runners).filter(name => name !== preferred),
   ];
 
+  let selectedRunner = null;
+  let selectedResult = null;
+
   for (const name of ordered) {
     const runner = runners[name];
     if (!runner || runner.enabled !== true) continue;
@@ -114,7 +118,8 @@ async function resolveRunnerCommand({ buildId, task }) {
     // This avoids all shell escaping issues with backticks, $, quotes, etc.
     const shellCmd = cmdArgs.map(a => JSON.stringify(a)).join(' ');
 
-    return {
+    selectedRunner = name;
+    selectedResult = {
       mode: 'auto_run',
       runner: name,
       command: shellCmd,
@@ -122,6 +127,21 @@ async function resolveRunnerCommand({ buildId, task }) {
       cmdArgs,
       isStreamJson,
     };
+    break;
+  }
+
+  if (selectedResult) {
+    // Warn if the preferred runner was skipped
+    if (selectedRunner !== preferred) {
+      const skippedRunner = runners[preferred];
+      const reason = !skippedRunner
+        ? 'not configured'
+        : skippedRunner.enabled !== true
+          ? 'not enabled'
+          : 'missing command template';
+      console.warn(`Preferred runner "${preferred}" is ${reason} — using "${selectedRunner}" instead.`);
+    }
+    return selectedResult;
   }
 
   return {
@@ -214,8 +234,42 @@ async function probeRunner(runnerName) {
   };
 }
 
+/**
+ * Resolve a PATH prefix for a runner executable.
+ *
+ * Fixes nvm PATH ordering issues: when a runner (e.g. codex) is installed
+ * under nvm Node v22 but `sh -l` resolves `node` to a system Node v20,
+ * the runner's `#!/usr/bin/env node` picks the wrong interpreter.
+ *
+ * Returns a shell snippet (e.g. `export PATH="/nvm/.../bin:$PATH" && `)
+ * that should be prepended to the shell command. This runs *after* the login
+ * shell profile loads, so it correctly overrides the profile's PATH.
+ * Returns an empty string if no fix is needed.
+ */
+function resolveRunnerPathPrefix(executable) {
+  if (!executable) return '';
+
+  // Resolve the real path of the executable via `sh -lc`
+  const probe = spawnSync('sh', ['-lc', `command -v ${executable}`], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const resolvedPath = (probe.stdout || '').trim();
+  if (!resolvedPath) return '';
+
+  // If the binary lives outside system dirs (e.g. in an nvm directory),
+  // return an export that prepends its bin dir to PATH.
+  const binDir = path.dirname(resolvedPath);
+  if (binDir && binDir !== '/usr/local/bin' && binDir !== '/usr/bin') {
+    return `export PATH=${JSON.stringify(binDir)}:"$PATH" && `;
+  }
+
+  return '';
+}
+
 module.exports = {
   resolveRunnerCommand,
+  resolveRunnerPathPrefix,
   buildHandoffPrompt,
   probeRunner,
 };

@@ -7,7 +7,9 @@ const os = require('os');
 const crypto = require('crypto');
 const { readConfig } = require('../services/llm-config');
 const { injectRunnerFlags } = require('./runner-registry');
+const { resolveRunnerPathPrefix } = require('./runner');
 const { injectStreamFlags, createStreamProcessor } = require('./stream-parser');
+const processRegistry = require('./process-registry');
 const {
   buildDirPath,
   readBuildMeta,
@@ -209,10 +211,13 @@ async function runChat({ buildId, message, chatHistory, eventBus }) {
     throw new Error(`Runner ${runnerName} has an empty command template`);
   }
 
-  // Inject model flag (use feedback model preference — same model that handles chat)
+  // Inject model + permission flags (use feedback model preference — same model that handles chat)
   const modelPrefs = config.modelPreferences?.feedback;
   const modelPref = typeof modelPrefs === 'object' ? modelPrefs[runnerName] : (typeof modelPrefs === 'string' ? modelPrefs : null);
-  injectRunnerFlags(runnerName, cmdArgs, { modelPref });
+  injectRunnerFlags(runnerName, cmdArgs, {
+    modelPref,
+    permissionMode: exec.permissionMode || 'bypassPermissions',
+  });
 
   // Inject stream-json flags for runners that support real-time streaming
   const isStreamJson = injectStreamFlags(runnerName, cmdArgs);
@@ -247,13 +252,23 @@ async function runChat({ buildId, message, chatHistory, eventBus }) {
   log('system', `Chat with ${runnerName}...`);
 
   // Spawn: cat <promptFile> | <runner> <flags>
-  const shellCmd = `cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
+  // Prepend PATH fix so the runner's Node version is found first (fixes nvm mismatches).
+  const pathPrefix = resolveRunnerPathPrefix(cmdArgs[0]);
+  const shellCmd = `${pathPrefix}cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
 
   return new Promise((resolve, reject) => {
     const child = spawn('sh', ['-lc', shellCmd], {
       cwd: projectRoot,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // Register for cancellation tracking
+    processRegistry.register(processId, {
+      child,
+      buildId: buildId || 'general',
+      type: 'chat',
+      promptFile,
     });
 
     const stream = createStreamProcessor({

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const chokidar = require('chokidar');
 const { updateTask, getTasks, readBuildMeta, updateBuildStatus, updateTaskMeta, resolveProjectRoot, lockAndWriteMeta } = require('../services/tasks-store');
 const gitService = require('../services/git-service');
+const { resolveRunnerPathPrefix } = require('./runner');
 const { createStreamProcessor } = require('./stream-parser');
 
 function extractQuestions(output) {
@@ -477,6 +478,10 @@ class ExecutionEngine {
       await fs.writeFile(promptFile, handoffPrompt, 'utf8');
       shellCmd = `cat ${JSON.stringify(promptFile)} | ${command}`;
     }
+
+    // Prepend PATH fix so the runner's Node version is found first (fixes nvm mismatches)
+    const pathPrefix = resolveRunnerPathPrefix(runnerName || '');
+    shellCmd = `${pathPrefix}${shellCmd}`;
 
     const child = spawn('sh', ['-lc', shellCmd], {
       cwd: execCwd,

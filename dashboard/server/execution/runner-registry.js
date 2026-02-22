@@ -32,18 +32,20 @@ const RUNNER_CAPABILITIES = {
     },
     defaultTemplate: 'codex exec - "{{handoffPrompt}}"',
     defaultModels: {
-      planning: 'o3',
-      execution: 'codex-mini',
-      feedback: 'o3',
-      guards: 'o4-mini',
+      planning: 'gpt-5.2',
+      execution: 'gpt-5.1-codex-mini',
+      feedback: 'gpt-5.2',
+      guards: 'gpt-5.1-codex-mini',
     },
-    commonModels: ['o3', 'o4-mini', 'codex-mini'],
+    commonModels: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex-max', 'gpt-5.2', 'gpt-5.1-codex-mini'],
   },
   gemini: {
     displayName: 'Google Gemini',
     modelFlag: '-m',
-    permissionFlags: {},              // Gemini has no permission bypass flag
-    defaultTemplate: 'gemini "{{handoffPrompt}}"',
+    permissionFlags: {
+      bypassPermissions: ['--yolo'],  // auto-approve all actions without prompting
+    },
+    defaultTemplate: 'gemini -p "{{handoffPrompt}}"',
     defaultModels: {
       planning: 'gemini-2.5-pro',
       execution: 'gemini-2.5-flash',

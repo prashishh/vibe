@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const DEFAULT_CONFIG = {
-  version: '1.2',
+  version: '1.4',
   execution: {
     mode: 'auto_run',
     preferredRunner: 'claude',
@@ -18,15 +18,15 @@ const DEFAULT_CONFIG = {
       },
       gemini: {
         enabled: false,
-        commandTemplate: 'gemini "{{handoffPrompt}}"'
+        commandTemplate: 'gemini -p "{{handoffPrompt}}"'
       }
     }
   },
   modelPreferences: {
-    planning:  { claude: 'claude-opus-4-6',            codex: 'o3',         gemini: 'gemini-2.5-pro' },
-    execution: { claude: 'claude-sonnet-4-5-20250929', codex: 'codex-mini', gemini: 'gemini-2.5-flash' },
-    feedback:  { claude: 'claude-sonnet-4-5-20250929', codex: 'o3',         gemini: 'gemini-2.5-pro' },
-    guards:    { claude: 'claude-haiku-4-5-20251001',  codex: 'o4-mini',    gemini: 'gemini-2.5-flash' },
+    planning:  { claude: 'claude-opus-4-6',            codex: 'gpt-5.2',            gemini: 'gemini-2.5-pro' },
+    execution: { claude: 'claude-sonnet-4-5-20250929', codex: 'gpt-5.1-codex-mini', gemini: 'gemini-2.5-flash' },
+    feedback:  { claude: 'claude-sonnet-4-5-20250929', codex: 'gpt-5.2',            gemini: 'gemini-2.5-pro' },
+    guards:    { claude: 'claude-haiku-4-5-20251001',  codex: 'gpt-5.1-codex-mini', gemini: 'gemini-2.5-flash' },
   },
 };
 
@@ -49,7 +49,12 @@ function migrateConfig(config) {
 
   // Add gemini runner if missing
   if (c.execution?.runners && !c.execution.runners.gemini) {
-    c.execution.runners.gemini = { enabled: false, commandTemplate: 'gemini "{{handoffPrompt}}"' };
+    c.execution.runners.gemini = { enabled: false, commandTemplate: 'gemini -p "{{handoffPrompt}}"' };
+  }
+
+  // Fix old gemini template (was missing `-p` for headless mode)
+  if (c.execution?.runners?.gemini?.commandTemplate === 'gemini "{{handoffPrompt}}"') {
+    c.execution.runners.gemini.commandTemplate = 'gemini -p "{{handoffPrompt}}"';
   }
 
   // Fix old codex template (was missing `exec -`)
@@ -77,11 +82,22 @@ function migrateConfig(config) {
     delete c.modelPreferences.triage;
   }
 
+  // Migrate old codex model IDs to GPT-5.x names
+  const CODEX_MODEL_MAP = { 'o3': 'gpt-5.2', 'o4-mini': 'gpt-5.1-codex-mini', 'codex-mini': 'gpt-5.1-codex-mini' };
+  if (c.modelPreferences) {
+    for (const phase of ['planning', 'execution', 'feedback', 'guards']) {
+      const codexModel = c.modelPreferences[phase]?.codex;
+      if (codexModel && CODEX_MODEL_MAP[codexModel]) {
+        c.modelPreferences[phase].codex = CODEX_MODEL_MAP[codexModel];
+      }
+    }
+  }
+
   // Strip legacy API key infrastructure
   delete c.llms;
   delete c.providers;
 
-  c.version = '1.2';
+  c.version = '1.4';
   return c;
 }
 
@@ -102,7 +118,7 @@ async function readConfig() {
   let parsed = JSON.parse(raw);
 
   // Auto-migrate older config versions
-  if (!parsed.version || parsed.version < '1.2') {
+  if (!parsed.version || parsed.version < '1.4') {
     parsed = migrateConfig(parsed);
     await fs.writeFile(configPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
   }

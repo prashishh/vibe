@@ -5,7 +5,9 @@ const os = require('os');
 const crypto = require('crypto');
 const { readConfig } = require('../services/llm-config');
 const { injectRunnerFlags } = require('./runner-registry');
+const { resolveRunnerPathPrefix } = require('./runner');
 const { injectStreamFlags, createStreamProcessor } = require('./stream-parser');
+const processRegistry = require('./process-registry');
 const {
   buildDirPath,
   readBuildMeta,
@@ -454,6 +456,17 @@ async function runPlanning({ buildId, eventBus }) {
     throw new Error('No enabled CLI runner found. Configure a runner (e.g. Claude, Codex) in Settings.');
   }
 
+  // Warn if the preferred runner was skipped (not enabled or missing template)
+  if (runnerName !== preferred) {
+    const skippedRunner = runners[preferred];
+    const reason = !skippedRunner
+      ? 'not configured'
+      : skippedRunner.enabled !== true
+        ? 'not enabled'
+        : 'missing command template';
+    log('warning', `Preferred runner "${preferred}" is ${reason} — using "${runnerName}" instead.`);
+  }
+
   const buildType = meta.buildType || 'lite';
   const description = meta.description || '';
   const projectRoot = meta.projectRoot || process.cwd();
@@ -485,10 +498,13 @@ async function runPlanning({ buildId, eventBus }) {
     throw new Error(`Runner ${runnerName} has an empty command template`);
   }
 
-  // Inject runner-specific model flag via registry (no permission flags for planning — read-only)
+  // Inject runner-specific model + permission flags via registry
   const modelPrefs = config.modelPreferences?.planning;
   const modelPref = typeof modelPrefs === 'object' ? modelPrefs[runnerName] : (typeof modelPrefs === 'string' ? modelPrefs : null);
-  injectRunnerFlags(runnerName, cmdArgs, { modelPref });
+  injectRunnerFlags(runnerName, cmdArgs, {
+    modelPref,
+    permissionMode: exec.permissionMode || 'bypassPermissions',
+  });
 
   // Enable real-time streaming for runners that support it (e.g. Claude)
   const isStreamJson = injectStreamFlags(runnerName, cmdArgs);
@@ -516,13 +532,23 @@ async function runPlanning({ buildId, eventBus }) {
 
   // Spawn: cat <promptFile> | <runner> <flags>
   // This pipes the prompt through stdin, avoiding all shell escaping issues.
-  const shellCmd = `cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
+  // Prepend PATH fix so the runner's Node version is found first (fixes nvm mismatches).
+  const pathPrefix = resolveRunnerPathPrefix(cmdArgs[0]);
+  const shellCmd = `${pathPrefix}cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
 
   return new Promise((resolve, reject) => {
     const child = spawn('sh', ['-lc', shellCmd], {
       cwd: projectRoot,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // Register for cancellation tracking
+    processRegistry.register(processId, {
+      child,
+      buildId,
+      type: 'planning',
+      promptFile,
     });
 
     const stream = createStreamProcessor({

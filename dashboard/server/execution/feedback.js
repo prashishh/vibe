@@ -5,7 +5,9 @@ const os = require('os');
 const crypto = require('crypto');
 const { readConfig } = require('../services/llm-config');
 const { injectRunnerFlags } = require('./runner-registry');
+const { resolveRunnerPathPrefix } = require('./runner');
 const { injectStreamFlags, createStreamProcessor } = require('./stream-parser');
+const processRegistry = require('./process-registry');
 const {
   buildDirPath,
   readBuildMeta,
@@ -166,10 +168,13 @@ async function runFeedback({ buildId, message, eventBus }) {
     throw new Error(`Runner ${runnerName} has an empty command template`);
   }
 
-  // Inject runner-specific model flag via registry (no permission flags for feedback — read-only)
+  // Inject runner-specific model + permission flags via registry
   const modelPrefs = config.modelPreferences?.feedback;
   const modelPref = typeof modelPrefs === 'object' ? modelPrefs[runnerName] : (typeof modelPrefs === 'string' ? modelPrefs : null);
-  injectRunnerFlags(runnerName, cmdArgs, { modelPref });
+  injectRunnerFlags(runnerName, cmdArgs, {
+    modelPref,
+    permissionMode: exec.permissionMode || 'bypassPermissions',
+  });
 
   // Inject stream-json flags for runners that support real-time streaming
   const isStreamJson = injectStreamFlags(runnerName, cmdArgs);
@@ -202,13 +207,23 @@ async function runFeedback({ buildId, message, eventBus }) {
   log('system', `Running feedback with ${runnerName}...`);
 
   // Spawn: cat <promptFile> | <runner> <flags>
-  const shellCmd = `cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
+  // Prepend PATH fix so the runner's Node version is found first (fixes nvm mismatches).
+  const pathPrefix = resolveRunnerPathPrefix(cmdArgs[0]);
+  const shellCmd = `${pathPrefix}cat ${JSON.stringify(promptFile)} | ${cmdArgs.map(a => JSON.stringify(a)).join(' ')}`;
 
   return new Promise((resolve, reject) => {
     const child = spawn('sh', ['-lc', shellCmd], {
       cwd: projectRoot,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // Register for cancellation tracking
+    processRegistry.register(processId, {
+      child,
+      buildId,
+      type: 'feedback',
+      promptFile,
     });
 
     // Stream all runner output to the terminal — same pattern as runPlanning.

@@ -1,6 +1,7 @@
 const express = require('express');
 const { getTasks } = require('../services/tasks-store');
 const { resolveRunnerCommand } = require('../execution/runner');
+const processRegistry = require('../execution/process-registry');
 const eventBus = require('../services/event-bus');
 
 async function buildStartPayload({
@@ -179,6 +180,49 @@ function createExecutionRouter(executionEngine) {
       const { buildId, taskId } = req.params;
       const cancelled = await executionEngine.cancel(buildId, taskId);
       res.json({ cancelled });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Cancel a non-task process (chat, planning, feedback) by process ID
+  router.post('/:buildId/cancel-process', async (req, res) => {
+    try {
+      const { buildId } = req.params;
+      const { processId } = req.body || {};
+
+      let cancelled;
+      if (processId) {
+        // Cancel a specific process
+        cancelled = await processRegistry.cancel(processId);
+      } else {
+        // Cancel all processes for this build
+        const ids = await processRegistry.cancelAll(buildId);
+        cancelled = ids.length > 0;
+      }
+
+      if (cancelled) {
+        eventBus.broadcast(buildId, 'execution-log', {
+          buildId,
+          taskId: null,
+          stream: 'system',
+          message: 'Process cancelled by user.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      res.json({ cancelled });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // List running processes for a build (for debugging/status)
+  router.get('/:buildId/processes', async (req, res) => {
+    try {
+      const { buildId } = req.params;
+      const running = processRegistry.list(buildId);
+      res.json({ processes: running });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

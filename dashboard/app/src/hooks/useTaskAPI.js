@@ -184,6 +184,15 @@ export function useTaskAPI(buildId) {
     return data.cancelled
   }, [buildId])
 
+  const cancelProcess = useCallback(async (targetBuildId) => {
+    const id = targetBuildId || buildId
+    if (!id) return false
+    const data = await request(`/api/execution/${id}/cancel-process`, {
+      method: 'POST',
+    })
+    return data.cancelled
+  }, [buildId])
+
   const fetchDocs = useCallback(async (targetBuildId) => {
     const id = targetBuildId || buildId
     if (!id) return {}
@@ -254,6 +263,7 @@ export function useTaskAPI(buildId) {
     reorder,
     startExecution,
     cancelExecution,
+    cancelProcess,
     enhanceTask,
     fetchDocs,
     saveDoc,
@@ -279,6 +289,7 @@ export function useTaskAPI(buildId) {
     reorder,
     startExecution,
     cancelExecution,
+    cancelProcess,
     enhanceTask,
     fetchDocs,
     saveDoc,

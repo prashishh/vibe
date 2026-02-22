@@ -6,7 +6,6 @@ const {
   listBuilds,
   assistBuild,
   createBuild,
-  planBuild,
   updateBuildStatus,
   deleteBuild,
   getBuildDocs,
@@ -127,7 +126,7 @@ function createTaskRouter(eventBus) {
           const result = await runPlanning({ buildId, eventBus });
           finalStatus = result?.status || 'planning';
         } catch (runnerErr) {
-          console.warn(`Runner planning failed for ${buildId}, falling back to templates: ${runnerErr.message}`);
+          console.warn(`Runner planning failed for ${buildId}: ${runnerErr.message}`);
 
           eventBus.broadcast(buildId, 'execution-log', {
             buildId,
@@ -140,28 +139,14 @@ function createTaskRouter(eventBus) {
             buildId,
             taskId: null,
             stream: 'system',
-            message: 'Falling back to template-based planning...',
+            message: 'Planning could not be completed. Build remains in pending state — fix the runner issue and retry.',
             timestamp: new Date().toISOString(),
           });
 
-          try {
-            await planBuild(buildId);
-            finalStatus = 'planning';
-          } catch (fallbackErr) {
-            eventBus.broadcast(buildId, 'execution-log', {
-              buildId,
-              taskId: null,
-              stream: 'error',
-              message: `Planning failed: ${fallbackErr.message}`,
-              timestamp: new Date().toISOString(),
-            });
-            try {
-              await updateBuildStatus(buildId, 'blocked', { validate: false });
-              finalStatus = 'blocked';
-            } catch {
-              // If meta update fails, keep default status for UI refresh fallback
-            }
-          }
+          // Keep build as pending so the user can retry planning after fixing the runner.
+          // Do NOT fall back to template-based planning — it creates placeholder docs
+          // and advances status to 'planning' even though no real planning occurred.
+          finalStatus = 'pending';
         }
 
         // Notify frontend that planning is done — triggers builds/tasks refresh
@@ -268,8 +253,52 @@ function createTaskRouter(eventBus) {
         activity,
       });
 
-      // Clear open questions once user answers via chat
+      // ── Reconcile build metadata after chat writes files ─────────────────
       const meta = await readBuildMeta(buildId);
+      let statusChanged = false;
+
+      // If TASKS.md was updated, re-parse tasks and sync build status.
+      // This allows the runner to change task statuses via chat (e.g. moving
+      // tasks from blocked → in_progress) and have the dashboard reflect it.
+      if (updatedFiles.includes('TASKS.md')) {
+        try {
+          const parsed = await getTasks(buildId);
+          const tasks = parsed.tasks || [];
+          const hasInProgress = tasks.some(t => t.status === 'in_progress');
+          const hasReview = tasks.some(t => t.status === 'review');
+          const allDeployed = tasks.length > 0 && tasks.every(t => t.status === 'deployed');
+
+          let inferredStatus = meta?.status || 'planning';
+          if (allDeployed) {
+            inferredStatus = 'review';
+          } else if (hasInProgress) {
+            inferredStatus = 'in_progress';
+          } else if (hasReview && !hasInProgress) {
+            inferredStatus = 'review';
+          }
+
+          if (inferredStatus !== meta?.status) {
+            await updateBuildStatus(buildId, inferredStatus, { validate: false });
+            statusChanged = true;
+            eventBus.broadcast(buildId, 'build-status-changed', {
+              buildId,
+              status: inferredStatus,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          // Notify frontend to refresh task list with re-parsed tasks
+          eventBus.broadcast(buildId, 'tasks-updated', {
+            buildId,
+            tasks,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (syncErr) {
+          console.warn(`Chat task sync failed for ${buildId}: ${syncErr.message}`);
+        }
+      }
+
+      // Clear open questions once user answers via chat
       const openQuestions = Array.isArray(meta?.openQuestions) ? meta.openQuestions : [];
       const hasNeedsInput = Array.isArray(meta?.needsInput?.questions) && meta.needsInput.questions.length > 0;
 
@@ -293,11 +322,13 @@ function createTaskRouter(eventBus) {
           message: 'Clarifications received. Needs-input state cleared.',
           timestamp: new Date().toISOString(),
         });
-        eventBus.broadcast(buildId, 'build-status-changed', {
-          buildId,
-          status: nextStatus,
-          timestamp: new Date().toISOString(),
-        });
+        if (!statusChanged) {
+          eventBus.broadcast(buildId, 'build-status-changed', {
+            buildId,
+            status: nextStatus,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
       const builds = await listBuilds();

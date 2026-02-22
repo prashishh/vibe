@@ -43,7 +43,7 @@ const RUNNER_DISPLAY = {
 
 const COMMON_MODELS = {
   claude: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
-  codex: ['o3', 'o4-mini', 'codex-mini'],
+  codex: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex-max', 'gpt-5.2', 'gpt-5.1-codex-mini'],
   gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
 }
 
@@ -256,6 +256,7 @@ function AgentPanel({
   onCommand,
   onGeneralChat,
   isThinking = false,
+  onStopProcess,
   pendingQuestions = [],
   isPlanning = false,
   runningCount = 0,
@@ -531,11 +532,35 @@ function AgentPanel({
         </div>
 
         {/* Live CLI output — streamed in real time, no filtering */}
-        {liveLines.length > 0 && <LiveOutput lines={liveLines} />}
+        {liveLines.length > 0 && (
+          <>
+            <LiveOutput lines={liveLines} />
+            {isThinking && onStopProcess && (
+              <div className="py-1 flex justify-end">
+                <button
+                  onClick={onStopProcess}
+                  className="px-2 py-0.5 text-xs rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
+                  title="Stop the running process"
+                >
+                  Stop
+                </button>
+              </div>
+            )}
+          </>
+        )}
         {isThinking && liveLines.length === 0 && (
           <div className="py-3 flex items-center gap-2 text-xs text-text-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
             <span>Agent is working...</span>
+            {onStopProcess && (
+              <button
+                onClick={onStopProcess}
+                className="ml-2 px-2 py-0.5 text-xs rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Stop the running process"
+              >
+                Stop
+              </button>
+            )}
           </div>
         )}
         <div ref={threadEndRef} />
