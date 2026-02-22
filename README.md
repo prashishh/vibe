@@ -40,6 +40,23 @@ Vibe replaces sprints with outcome-driven builds. Every piece of work starts wit
 | `/lite` | 3 to 8 | Low to Medium | GOAL + TASKS + RECAP | Straightforward features |
 | `/full` | 8+ | Any | Full document set | Complex architecture |
 
+### How Each Workflow Runs
+
+```
+New work arrives
+│
+├─ 1 to 3 tasks, Low risk, no core changes
+│   └─ /vibe  →  implement  →  check  →  commit  →  changelog
+│
+├─ 3 to 8 tasks, Low or Medium risk
+│   └─ /lite  →  brainstorm  →  GOAL + TASKS  →  execute  →  check  →  RECAP
+│
+└─ 8+ tasks, High risk, or architecture involved
+    └─ /full  →  brainstorm  →  GOAL + PLAN + DESIGN + TASKS
+                           →  execute  →  check  →  REVIEW gate
+                           →  SHIP gate  →  RECAP
+```
+
 ### Commands
 
 **Autonomous workflows** (end to end):
@@ -61,11 +78,61 @@ Vibe replaces sprints with outcome-driven builds. Every piece of work starts wit
 | `/ship` | Deployment checklist |
 | `/recap` | Close build with summary |
 | `/propose` | Suggest next build from previous seeds |
-| `/start` | One time initialization |
+| `/start` | One time initialization (skill equivalent of `vibe init`) |
+
+### Example: Quick Fix
+
+```
+/vibe fix the broken pagination on the users table
+```
+
+The agent writes the fix, runs guard checks, commits with a `vibe:` prefix, and adds a one-line entry to the changelog. No planning docs, no approvals. Done in a few minutes.
+
+### Example: Feature Build
+
+```
+/lite add CSV export to the admin dashboard
+```
+
+The agent opens with clarifying questions about scope, success criteria, and risk. Once answered it generates `builds/v2/GOAL.md` and `builds/v2/TASKS.md`, pauses for approval, executes all tasks, then closes with `builds/v2/RECAP.md`.
+
+A `GOAL.md` looks like this:
+
+```markdown
+# Build v2: CSV Export
+
+## Intent
+Add CSV export to the admin dashboard so admins can download filtered user data.
+
+## Success Metric
+1. Admins can export the current filtered view as a CSV file.
+2. Export includes all visible columns and respects active filters.
+3. Files download within 3 seconds for up to 10,000 rows.
+
+## Scope
+### In
+- Export button on the users table toolbar
+- Server endpoint that streams CSV with current filters applied
+- Filename includes date and active filter summary
+
+### Out
+- Scheduled or email-based exports (next build)
+- Excel or PDF formats
+```
+
+### Example: Starting a Complex Build
+
+```
+/full implement SSO authentication with Google and GitHub
+```
+
+The agent runs a deep brainstorming session covering architecture, data model changes, API contracts, risk areas, and rollback strategy. It generates the full document set (GOAL, PLAN, DESIGN, TASKS), pauses for approval, executes tasks autonomously, then requires a passing REVIEW and completed SHIP checklist before the build can close.
 
 ### Guards
 
 Guards are append-only safety contracts that define what must never break. They are generated during `vibe init` (or `/start` inside the AI assistant) based on the project type, and every build must pass all of them before it can close. Examples include authentication boundaries, authorization rules, data integrity, and core user flows.
+
+New guards can be added as the project grows. Existing guards can never be weakened or removed.
 
 ### Auto Promotion
 
