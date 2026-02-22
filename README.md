@@ -20,7 +20,7 @@ cd /path/to/your-project
 vibe init
 ```
 
-This runs an interactive setup, installs skills for your chosen AI assistant, and creates a `.vibe/` directory in the project with templates, build tracking, and configuration. Guards are generated separately via `/guards` (written to `.vibe/GUARDS.md`).
+This runs an interactive setup, installs skills for your chosen AI assistant, and creates a `.vibe/` directory in the project with templates, build tracking, and configuration. Guards are created separately (written to `.vibe/GUARDS.md`) via `/guards` or from the dashboard.
 
 Alternatively, if you are inside Claude Code or Codex, you can run the `/start` skill directly from the chat instead of using the CLI.
 
@@ -59,7 +59,7 @@ New work arrives
 
 | Command | What It Does |
 |---------|-------------|
-| `/vibe <fix>` | Quick fix: code, check, commit, no approvals. |
+| `/vibe <feature>` | Quick fix: code, check, commit, no approvals. |
 | `/lite <feature>` | Feature build: brainstorm, plan, execute, verify, recap. |
 | `/full <feature>` | Complex build: full document set with multiple checkpoints. |
 
@@ -82,7 +82,7 @@ New work arrives
 /vibe fix the broken pagination on the users table
 ```
 
-The agent writes the fix, runs guard checks, commits with a `vibe:` prefix, and adds a one-line entry to the changelog. No planning docs, no approvals. Done in a few minutes.
+The agent writes the fix, runs guard checks, commits with a `vibe:` prefix, and adds a one-line entry to the changelog, typically in a few minutes without planning docs or approval steps.
 
 ### Example: Feature Build
 
@@ -126,7 +126,7 @@ The agent generates the full document set (GOAL, PLAN, DESIGN, TASKS), pauses fo
 
 ### Guards
 
-Guards are append-only safety contracts that define what must never break. Generate them with `/guards` (writes `.vibe/GUARDS.md`), then use `/check` to verify them against the codebase. Every build must pass guards before it can close.
+Guards are append-only safety contracts that define what must never break. Create them via `/guards` or from the dashboard (writes `.vibe/GUARDS.md`), then use `/check` to verify them against the codebase. Every build must pass guards before it can close.
 
 New guards can be added as the project grows. Existing guards can never be weakened or removed.
 
@@ -144,6 +144,7 @@ vibe dashboard
 ```
 
 From the dashboard you can create and plan builds, watch task execution stream live, run tasks in parallel, view guard status across builds, browse all build documents, and answer agent questions when it needs input.
+You can also create and edit guards directly in the dashboard (Guards view), which writes to `.vibe/GUARDS.md`.
 
 ## Project Structure After `vibe init`
 
@@ -159,7 +160,7 @@ your-project/
     │   └── VIBE.md            Framework spec
     ├── templates/             Build document templates
     ├── CHANGELOG.md           Build history (in .vibe/)
-    ├── GUARDS.md              Safety contracts (generate with /guards)
+    ├── GUARDS.md              Safety contracts (create via /guards or dashboard)
     ├── llm-config.json        LLM profiles
     └── dashboard-config.json  Dashboard wiring
 ```
