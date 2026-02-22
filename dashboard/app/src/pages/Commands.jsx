@@ -72,7 +72,7 @@ export default function Commands() {
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Commands</h1>
-        <p className="text-muted">Available Vibe Framework commands</p>
+        <p className="text-muted">Available Vibe commands</p>
       </div>
 
       <div className="space-y-4">

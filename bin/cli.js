@@ -14,7 +14,7 @@ program
 
 program
   .command('init')
-  .description('Initialize Vibe Framework in current project')
+  .description('Initialize Vibe in current project')
   .action(async () => {
     try {
       await init();

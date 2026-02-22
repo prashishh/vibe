@@ -33,5 +33,5 @@ if [ ! -f "$TARGET/CHANGELOG.md" ]; then
   echo "# Changelog" > "$TARGET/CHANGELOG.md"
 fi
 
-echo "vibe-framework installed in: $TARGET"
+echo "Vibe installed in: $TARGET"
 echo "Adapter: $ADAPTER"

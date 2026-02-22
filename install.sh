@@ -1,12 +1,12 @@
 #!/bin/bash
-# Vibe Framework Global Installer
+# Vibe Installer
 
 set -e
 
 INSTALL_DIR="${HOME}/.vibe"
 SKILLS_DIR="${HOME}/.claude/skills"
 
-echo "🚀 Installing Vibe Framework..."
+echo "🚀 Installing Vibe..."
 echo ""
 
 # Create install directory
@@ -20,9 +20,6 @@ cp -r adapters "$INSTALL_DIR/"
 cp -r dashboard "$INSTALL_DIR/"
 cp README.md "$INSTALL_DIR/"
 cp CHANGELOG.md "$INSTALL_DIR/"
-cp SETUP_GUIDE.md "$INSTALL_DIR/"
-cp COMMANDS_GUIDE.md "$INSTALL_DIR/"
-cp CLI_USAGE.md "$INSTALL_DIR/"
 
 echo "✅ Framework files installed to $INSTALL_DIR"
 echo ""
@@ -30,7 +27,7 @@ echo ""
 # Install Claude Code skills (if Claude detected)
 if [ -d "$HOME/.claude" ]; then
   echo "🎯 Detected Claude Code installation"
-  echo "📝 Installing vibe skills..."
+  echo "📝 Installing Vibe skills..."
 
   mkdir -p "$SKILLS_DIR"
   cp adapters/claude/commands/*.md "$SKILLS_DIR/"
@@ -38,8 +35,11 @@ if [ -d "$HOME/.claude" ]; then
   echo "✅ Skills installed to $SKILLS_DIR"
   echo ""
   echo "   Available commands:"
-  echo "   - /start        Initialize framework in a project"
-  echo "   - /plan         Create new build"
+  echo "   - /start        Initialize Vibe in a project"
+  echo "   - /vibe         Quick fix (1-3 tasks)"
+  echo "   - /lite         Feature build (3-8 tasks)"
+  echo "   - /full         Complex build (8+ tasks)"
+  echo "   - /plan         Create build documents"
   echo "   - /execute      Work on next task"
   echo "   - /check        Run all guards"
   echo "   - /review       Review before ship"
@@ -55,21 +55,28 @@ else
   echo ""
 fi
 
-# Create quick reference
-echo "📚 Framework installed successfully!"
+# Install dashboard dependencies
+echo "📦 Installing dashboard dependencies..."
+if [ -d "$INSTALL_DIR/dashboard/app" ]; then
+  (cd "$INSTALL_DIR/dashboard/app" && npm install --silent 2>/dev/null) && echo "✅ Dashboard app dependencies installed" || echo "⚠️  Could not install dashboard app dependencies (run manually: cd ~/.vibe/dashboard/app && npm install)"
+fi
+if [ -d "$INSTALL_DIR/dashboard/server" ]; then
+  (cd "$INSTALL_DIR/dashboard/server" && npm install --silent 2>/dev/null) && echo "✅ Dashboard server dependencies installed" || echo "⚠️  Could not install dashboard server dependencies (run manually: cd ~/.vibe/dashboard/server && npm install)"
+fi
+echo ""
+
+echo "📚 Vibe installed successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. cd /path/to/your-project"
-echo "  2. Run: /start (in Claude Code)"
-echo "     Or manually: cp -r ~/.vibe/templates builds/"
+echo "  2. Run /start in Claude Code to initialize"
 echo ""
-echo "Documentation:"
-echo "  - Setup guide:  cat ~/.vibe/SETUP_GUIDE.md"
-echo "  - Commands:     cat ~/.vibe/COMMANDS_GUIDE.md"
-echo "  - Full spec:    cat ~/.vibe/core/VIBE.md"
+echo "Dashboard:"
+echo "  cd ~/.vibe/dashboard/server && node index.js &"
+echo "  cd ~/.vibe/dashboard/app && npm run dev"
 echo ""
-echo "Dashboard (optional):"
-echo "  cd ~/.vibe/dashboard/app"
-echo "  npm install && npm run dev"
+echo "Docs:"
+echo "  - README:    cat ~/.vibe/README.md"
+echo "  - Full spec: cat ~/.vibe/core/VIBE.md"
 echo ""
-echo "🎉 Ready to use vibe framework!"
+echo "🎉 Ready to use Vibe!"

@@ -20,7 +20,7 @@ function Layout() {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-text-primary">
-                Vibe Framework
+                Vibe
               </h1>
               <p className="text-xs text-text-muted">v0.1.0</p>
             </div>

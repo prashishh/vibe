@@ -14,7 +14,7 @@ const {
 } = require('../services/tasks-store');
 
 /**
- * Map build type to Vibe Framework skill command.
+ * Map build type to Vibe skill command.
  *
  *   lite  → /lite  (3-8 tasks, creates GOAL, TASKS, RECAP)
  *   full  → /full  (8+ tasks, creates GOAL, PLAN, DESIGN, TASKS, REVIEW, SHIP, RECAP)
@@ -33,7 +33,7 @@ function skillForBuildType(buildType) {
 }
 
 /**
- * Build the planning prompt that invokes the proper Vibe Framework skill.
+ * Build the planning prompt that invokes the proper Vibe skill.
  *
  * Instead of a raw "generate these files" prompt, we tell the runner
  * to follow the skill's planning workflow — reading core/VIBE.md,
@@ -58,7 +58,7 @@ function buildSkillPrompt({ buildId, buildType, description, projectRoot }) {
       `- Build directory: .vibe/builds/${buildId}/`,
       '',
       'INSTRUCTIONS:',
-      'You are running a Vibe Framework quick fix. Follow the /vibe workflow:',
+      'You are running a Vibe quick fix. Follow the /vibe workflow:',
       '',
       '1. Viability check — confirm this is 1-3 tasks, low risk, no core behavior change.',
       '2. If it qualifies, plan the implementation steps.',
@@ -142,7 +142,7 @@ function buildSkillPrompt({ buildId, buildType, description, projectRoot }) {
     `- Build type: ${label}`,
     '',
     'INSTRUCTIONS:',
-    `You are running the Vibe Framework ${skill} skill for planning.`,
+    `You are running the Vibe ${skill} skill for planning.`,
     `Follow the ${skill} workflow:`,
     '',
     '1. READ the project context:',
@@ -408,7 +408,7 @@ function mergeQuestions(...groups) {
 
 /**
  * Run the planning phase using the configured CLI runner and the
- * appropriate Vibe Framework skill (/lite, /full, or /vibe).
+ * appropriate Vibe skill (/lite, /full, or /vibe).
  *
  * Strategy: Write the skill prompt to a temp file, then pipe it to the
  * runner via stdin. This completely avoids shell escaping issues with

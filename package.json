@@ -1,23 +1,15 @@
 {
   "name": "vibe",
-  "version": "0.1.0",
-  "description": "Vibe Framework - Agentic software delivery framework for AI-assisted development",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "description": "Vibe: Agentic software delivery framework for AI-assisted development",
   "main": "lib/index.js",
   "bin": {
     "vibe": "bin/cli.js"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
-  "files": [
-    "bin/",
-    "lib/",
-    "core/",
-    "templates/",
-    "adapters/",
-    "dashboard/",
-    "*.md"
-  ],
   "scripts": {
     "postinstall": "node lib/postinstall.js"
   },
@@ -28,18 +20,9 @@
     "fs-extra": "^11.0.0",
     "gray-matter": "^4.0.3"
   },
-  "keywords": [
-    "cli",
-    "framework",
-    "delivery",
-    "guards",
-    "ai",
-    "agentic",
-    "development"
-  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/username/vibe-framework"
+    "url": "https://github.com/prashishrajbhandari/vibe"
   },
   "license": "MIT",
   "author": "Prashish Rajbhandari"

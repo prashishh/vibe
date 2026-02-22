@@ -1,9 +1,9 @@
 ---
-description: Initialize vibe-framework in the current project via interactive prompts.
+description: Initialize Vibe in the current project via interactive prompts.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, AskUserQuestion
 ---
 
-Initialize vibe-framework in this project.
+Initialize Vibe in this project.
 
 ## Process
 
@@ -15,7 +15,7 @@ Check if already initialized:
 - Does `.vibe/CHANGELOG.md` exist?
 
 If any exist, ask user:
-- "Vibe framework appears partially initialized. Continue anyway?"
+- "Vibe appears partially initialized. Continue anyway?"
 
 ### 2. Gather Configuration via Prompts
 
@@ -60,7 +60,7 @@ mkdir -p .vibe/templates/lite
 
 Determine framework location (could be):
 - `~/.vibe/` (global install)
-- `./node_modules/vibe-framework/` (npm package)
+- `./node_modules/Vibe/` (npm package)
 - Relative path to framework repo
 
 Copy:
@@ -168,7 +168,7 @@ Based on user's answers to Q2 and Q3, create `.vibe/GUARDS.md`:
 # Changelog
 
 ## [Unreleased]
-- Initialized vibe-framework
+- Initialized Vibe
 - Created [N] guard contracts
 - Ready for first build
 
@@ -179,7 +179,7 @@ EOF
 
 Add:
 ```
-# Vibe framework (optional - you may want to commit these)
+# Vibe (optional - you may want to commit these)
 # .vibe/
 # builds/
 ```
@@ -206,7 +206,7 @@ Then run `/plan <feature>` automatically.
 Print:
 
 ```
-✅ Vibe Framework Initialized!
+✅ Vibe Initialized!
 
 📁 Created:
   - .vibe/core/VIBE.md
@@ -244,7 +244,7 @@ Print:
 Create a project-specific quick reference:
 
 ```markdown
-# Vibe Framework - This Project
+# Vibe - This Project
 
 ## Guards
 [Copy guards from .vibe/GUARDS.md]
@@ -267,22 +267,22 @@ See .vibe/core/VIBE.md for full spec.
 
 If framework files not found:
 ```
-❌ Vibe framework source not found.
+❌ Vibe source not found.
 
 Please install framework first:
 
 Option 1 (recommended): Clone framework repo
-  git clone https://github.com/yourusername/vibe-framework ~/.vibe
+  git clone https://github.com/yourusername/Vibe ~/.vibe
 
 Option 2: Install as npm package
-  npm install -g vibe-framework
+  npm install -g Vibe
 
 Then run /init again.
 ```
 
 If already initialized:
 ```
-⚠️ Vibe framework already initialized in this project.
+⚠️ Vibe already initialized in this project.
 
 Found:
   - .vibe/GUARDS.md

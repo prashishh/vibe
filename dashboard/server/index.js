@@ -49,7 +49,7 @@ const watcher = setupMarkdownSync(eventBus);
 
 const PORT = Number(process.env.VIBE_API_PORT || 3001);
 const server = app.listen(PORT, () => {
-  console.log(`Vibe API server running on http://localhost:${PORT}`);
+  console.log(`Vibe server running on http://localhost:${PORT}`);
 
   // Non-blocking gh CLI availability check (informational only)
   try {

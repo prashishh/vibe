@@ -1,4 +1,4 @@
-# Vibe Framework v0.1.0
+# Vibe v0.1.0
 
 A development workflow framework designed for AI-assisted software development. Replaces traditional sprints with outcome-driven **builds** and permanent **guards**.
 
@@ -77,7 +77,7 @@ A build closes when the **outcome is validated and live** — not when a calenda
 
 | Concept | Name | Example |
 |---------|------|---------|
-| Framework | **Vibe Framework** | "We use Vibe Framework" |
+| Framework | **Vibe** | "We use Vibe" |
 | Planned work (full ceremony) | **Full Build** | Build v1: Admin Auth |
 | Medium ceremony work | **Lite Build** | Build v2: Add export feature |
 | Small quick work (low ceremony) | **Vibe** | `vibe: fix scroll overflow` |
@@ -99,7 +99,7 @@ The human's role shifts from **writing code** to **directing intent and reviewin
 
 ## Three-Tier Work System
 
-Vibe Framework supports three levels of ceremony based on scope, complexity, and risk.
+Vibe supports three levels of ceremony based on scope, complexity, and risk.
 
 ### Decision Matrix
 

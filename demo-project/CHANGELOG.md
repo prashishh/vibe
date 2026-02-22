@@ -18,6 +18,6 @@
 - Updated SHIP/REVIEW templates to explicitly enforce gate behavior.
 
 ## [v0.1.0] - 2026-02-13
-- Extracted standalone `vibe-framework` from project-specific workflow.
+- Extracted standalone framework from project-specific workflow.
 - Standardized naming around `VIBE_CHECK`, `GUARDS`, and `/recap`.
 - Added agent-agnostic adapter structure for Claude/Codex/Kimi/GLM.
