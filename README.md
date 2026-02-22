@@ -17,7 +17,16 @@ The installer copies framework files to `~/.vibe`, installs Claude Code skills i
 cd ~/.vibe && npm link
 ```
 
-Then run `/start` inside any project to initialize. It creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with templates and configuration.
+Then initialize any project with the CLI:
+
+```bash
+cd /path/to/your-project
+vibe init
+```
+
+This runs an interactive setup and creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with templates and configuration.
+
+Alternatively, if you are inside Claude Code or Codex, you can run the `/start` skill directly from the chat instead of using the CLI.
 
 ## How It Works
 
@@ -56,7 +65,7 @@ Vibe replaces sprints with outcome-driven builds. Every piece of work starts wit
 
 ### Guards
 
-Guards are append-only safety contracts that define what must never break. They are generated during `/start` based on the project type, and every build must pass all of them before it can close. Examples include authentication boundaries, authorization rules, data integrity, and core user flows.
+Guards are append-only safety contracts that define what must never break. They are generated during `vibe init` (or `/start` inside the AI assistant) based on the project type, and every build must pass all of them before it can close. Examples include authentication boundaries, authorization rules, data integrity, and core user flows.
 
 ### Auto Promotion
 
@@ -73,7 +82,7 @@ cd ~/.vibe/dashboard/app && npm run dev
 
 From the dashboard you can create and plan builds, watch task execution stream live, run tasks in parallel, view guard status across builds, browse all build documents, and answer agent questions when it needs input.
 
-## Project Structure After `/start`
+## Project Structure After `vibe init`
 
 ```
 your-project/
@@ -99,7 +108,6 @@ adapters/claude/commands/     Claude Code skill definitions
 adapters/codex/               Codex adapter
 dashboard/app/                React frontend (Vite + Tailwind)
 dashboard/server/             Node.js backend (Express + WebSocket)
-examples/                     Sample build directories
 ```
 
 ## License

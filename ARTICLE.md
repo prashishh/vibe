@@ -24,7 +24,9 @@ The framework is opinionated on purpose. It has a defined process for every type
 
 ## Getting Started
 
-Clone the repository and run the installer, then use `/start` inside any project to initialize. Full setup instructions are in the [README](./README.md).
+Clone the repository and run the installer. Once installed, run `vibe init` from the terminal inside any project to go through the interactive setup. This creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with all templates and configuration.
+
+If working directly inside Claude Code or Codex, the `/start` skill does the same thing from within the AI assistant chat. The CLI (`vibe init`) and the skill (`/start`) are two paths to the same setup. Full setup instructions are in the [README](./README.md).
 
 ![Vibe Dashboard](./screenshots/dashboard-main.png)
 *[PLACEHOLDER: Dashboard screenshot showing active build with live streaming agent output and task queue]*
