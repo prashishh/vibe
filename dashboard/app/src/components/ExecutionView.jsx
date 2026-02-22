@@ -974,14 +974,6 @@ function ExecutionView({
           >
             Ship It!
           </button>
-          {buildInfo.gitEnabled && !buildInfo.prUrl && (
-            <button
-              onClick={() => setShowPRModal(true)}
-              className="w-full py-2 rounded-lg text-xs font-semibold border-2 border-accent/40 text-accent hover:bg-accent/10 transition-colors"
-            >
-              Create PR
-            </button>
-          )}
           {buildInfo.prUrl && (
             <a
               href={buildInfo.prUrl}
@@ -1096,14 +1088,6 @@ function ExecutionView({
                   <div className="rounded-lg border-2 border-success/30 bg-success/5 p-3 mt-2 space-y-2">
                     <p className="text-xs font-medium text-success">Cycle Shipped</p>
                     <p className="text-xs text-text-muted">This cycle has been deployed. Write a RECAP to close it out — switch to the Recap tab.</p>
-                    {buildInfo.gitEnabled && !buildInfo.prUrl && (
-                      <button
-                        onClick={() => setShowPRModal(true)}
-                        className="w-full py-1.5 rounded-lg text-[11px] font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
-                      >
-                        Create PR
-                      </button>
-                    )}
                     {buildInfo.prUrl && (
                       <a
                         href={buildInfo.prUrl}

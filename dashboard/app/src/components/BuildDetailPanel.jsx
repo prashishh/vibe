@@ -765,14 +765,6 @@ function BuildDetailPanel({
             >
               Ship It!
             </button>
-            {buildInfo.gitEnabled && !buildInfo.prUrl && (
-              <button
-                onClick={() => setShowPRModal(true)}
-                className="px-6 py-2 rounded-lg text-sm font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
-              >
-                Create PR
-              </button>
-            )}
             {buildInfo.prUrl && (
               <a
                 href={buildInfo.prUrl}
@@ -895,14 +887,6 @@ function BuildDetailPanel({
                   <div className="rounded-lg border border-success/30 bg-success/5 p-4 mt-2 space-y-2">
                     <p className="text-xs font-medium text-success">Cycle Shipped</p>
                     <p className="text-xs text-text-muted">This cycle has been deployed. Write a RECAP to close it out.</p>
-                    {buildInfo.gitEnabled && !buildInfo.prUrl && (
-                      <button
-                        onClick={() => setShowPRModal(true)}
-                        className="py-1.5 px-4 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
-                      >
-                        Create PR
-                      </button>
-                    )}
                     {buildInfo.prUrl && (
                       <a
                         href={buildInfo.prUrl}
