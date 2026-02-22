@@ -134,7 +134,7 @@ export default function PRModal({ isOpen, onClose, onSubmit, defaultTitle = '', 
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   disabled={submitting}
-                  placeholder="Describe the changes in this PR..."
+                  placeholder="Describe the changes in this PR.."
                   rows={6}
                   className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface-alt text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:opacity-50 resize-y"
                   style={{ fontFamily: 'var(--font-mono)', minHeight: '120px' }}

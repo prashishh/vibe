@@ -26,6 +26,7 @@ const gitService = require('../services/git-service');
 const { buildTaskFromPrompt } = require('../llm/client');
 const { runPlanning } = require('../execution/planner');
 const { runFeedback } = require('../execution/feedback');
+const { runChat } = require('../execution/chat');
 
 function createTaskRouter(eventBus) {
   const router = express.Router();
@@ -195,6 +196,29 @@ function createTaskRouter(eventBus) {
     }
   });
 
+  // ── General chat (no build selected) ────────────────────────────────────
+  router.post('/chat/general', async (req, res) => {
+    try {
+      const message = String(req.body?.message || '').trim();
+      const chatHistory = Array.isArray(req.body?.chatHistory) ? req.body.chatHistory : [];
+      if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      const result = await runChat({ message, chatHistory });
+
+      // If CLI runner detected build intent, tell frontend to create a cycle
+      if (result.buildIntent) {
+        return res.json({ action: 'create_build', description: result.buildIntent, response: null });
+      }
+
+      return res.json({ action: null, response: result.conversationalResponse || 'I can help you with that. Try describing what you want to build.' });
+    } catch (error) {
+      return res.status(500).json({ error: error.message, response: 'Sorry, I couldn\'t process that. Make sure your CLI runner is installed and configured in Settings.' });
+    }
+  });
+
+  // ── Build-specific chat ─────────────────────────────────────────────────
   router.post('/builds/:buildId/chat', async (req, res) => {
     try {
       const { buildId } = req.params;
@@ -203,7 +227,7 @@ function createTaskRouter(eventBus) {
         return res.status(400).json({ error: 'Message is required' });
       }
 
-      // Emit structured chat-message for the user's message
+      // Emit user message via SSE
       const userMsgId = `msg-user-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
       eventBus.broadcast(buildId, 'chat-message', {
         id: userMsgId,
@@ -213,27 +237,42 @@ function createTaskRouter(eventBus) {
         activity: [],
       });
 
-      const result = await runFeedback({ buildId, message, eventBus });
+      // Read recent chat history for multi-turn context
+      let chatHistory = [];
+      try {
+        const chatFile = path.join(buildDirPath(buildId), 'CHAT.jsonl');
+        const raw = await fsPromises.readFile(chatFile, 'utf8');
+        chatHistory = raw.trim().split('\n').filter(Boolean).map(line => {
+          try { return JSON.parse(line); } catch { return null; }
+        }).filter(Boolean).slice(-10);
+      } catch { /* no history yet */ }
 
-      // Emit structured chat-message for the assistant's response
-      const assistantMsgId = `msg-asst-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+      // Single path: CLI runner handles everything
+      const result = await runChat({ buildId, message, chatHistory, eventBus });
+
       const updatedFiles = result.updatedFiles || [];
-      const assistantContent = updatedFiles.length > 0
-        ? `Updated ${updatedFiles.map(f => `**${f}**`).join(', ')}.`
-        : 'No changes needed.';
+      const activity = result.activity || [];
+      const assistantContent = result.conversationalResponse || (
+        updatedFiles.length > 0
+          ? `Updated ${updatedFiles.map(f => `**${f}**`).join(', ')}.`
+          : 'Looked at the request but no document changes were needed.'
+      );
+
+      // Emit assistant response via SSE
+      const assistantMsgId = `msg-asst-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
       eventBus.broadcast(buildId, 'chat-message', {
         id: assistantMsgId,
         role: 'assistant',
         content: assistantContent,
         timestamp: new Date().toISOString(),
-        activity: result.activity || [],
+        activity,
       });
 
+      // Clear open questions once user answers via chat
       const meta = await readBuildMeta(buildId);
       const openQuestions = Array.isArray(meta?.openQuestions) ? meta.openQuestions : [];
       const hasNeedsInput = Array.isArray(meta?.needsInput?.questions) && meta.needsInput.questions.length > 0;
 
-      // Clear open questions once user answers via chat.
       if (openQuestions.length > 0 || hasNeedsInput) {
         let nextStatus = meta?.status || 'planning';
         if (meta?.status === 'blocked' && /planning needs clarification/i.test(meta?.blockedReason || '')) {
@@ -262,7 +301,7 @@ function createTaskRouter(eventBus) {
       }
 
       const builds = await listBuilds();
-      return res.json({ result, builds });
+      return res.json({ result: { updatedFiles, activity }, builds });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }

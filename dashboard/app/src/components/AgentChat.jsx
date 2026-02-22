@@ -154,16 +154,16 @@ function AgentChat({ buildId, onSendChat, disabled, pendingQuestions = [] }) {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            disabled ? 'Wait for processing to finish...'
-            : showQuestionsBanner ? "Answer the agent's questions..."
-            : 'Message the agent...'
+            disabled ? 'Wait for processing to finish..'
+            : showQuestionsBanner ? "Answer the agent's questions.."
+            : 'Message the agent..'
           }
           disabled={disabled || sending}
           rows={2}
-          className={`flex-1 resize-none rounded-xl border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`flex-1 resize-none rounded-xl border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed ${
             showQuestionsBanner
               ? 'border-warning/40 focus:border-warning focus:ring-warning/30'
-              : 'border-border focus:border-accent focus:ring-accent/30'
+              : 'border-border-light focus:border-accent focus:ring-accent/30'
           }`}
           style={{ minHeight: '56px', maxHeight: '200px' }}
           onInput={(e) => {

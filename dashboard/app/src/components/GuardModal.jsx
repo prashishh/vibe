@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
-const LAYERS = ['Contract', 'Browser', 'API', 'Database']
-const RISKS = ['Low', 'Medium', 'High', 'Total']
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 /**
  * Parse existing guards content to find the highest guard ID number.
- * Looks for patterns like "## G-01:", "## G-12:", etc.
  */
 function getNextGuardId(existingContent) {
   if (!existingContent) return 'G-01'
@@ -20,35 +18,16 @@ function getNextGuardId(existingContent) {
   return `G-${String(next).padStart(2, '0')}`
 }
 
-/**
- * Convert plain text form fields to a markdown guard block.
- */
-function formatGuardMarkdown({ id, name, contract, invariants, layer, risk }) {
-  const lines = [
-    '',
-    `## ${id}: ${name}`,
-    `- **Contract**: ${contract}`,
-    `- **Invariants**: ${invariants}`,
-    `- **Layer**: ${layer}`,
-    `- **Risk if broken**: ${risk}`,
-  ]
-  return lines.join('\n') + '\n'
-}
-
 function GuardModal({ onClose, onSave, initialContent = '', existingContent = '' }) {
   const isEditing = Boolean(initialContent)
   const modalRef = useRef(null)
   const firstInputRef = useRef(null)
 
-  // Edit mode state — raw markdown textarea
+  // Edit mode state
   const [editContent, setEditContent] = useState(initialContent)
 
-  // Create mode state — structured form
-  const [name, setName] = useState('')
-  const [contract, setContract] = useState('')
-  const [invariants, setInvariants] = useState('')
-  const [layer, setLayer] = useState('API')
-  const [risk, setRisk] = useState('Medium')
+  // Create mode state — single text field
+  const [description, setDescription] = useState('')
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -63,7 +42,6 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
         return
       }
 
-      // Focus trap
       if (e.key === 'Tab' && modalRef.current) {
         const focusable = modalRef.current.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -103,12 +81,9 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
   }
 
   const handleSaveCreate = async () => {
-    if (!name.trim()) {
-      setError('Guard name is required.')
-      return
-    }
-    if (!contract.trim()) {
-      setError('Contract is required.')
+    const text = description.trim()
+    if (!text) {
+      setError('Please describe the guard you want to add.')
       return
     }
 
@@ -116,17 +91,38 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
     setError('')
 
     try {
-      const guardId = getNextGuardId(existingContent)
-      const newBlock = formatGuardMarkdown({
-        id: guardId,
-        name: name.trim(),
-        contract: contract.trim(),
-        invariants: invariants.trim() || 'TBD',
-        layer,
-        risk,
+      // Try the LLM-powered endpoint first
+      const res = await fetch(`${API_BASE}/api/guards/from-description`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: text }),
       })
 
-      // Append to existing content
+      if (res.ok) {
+        const data = await res.json()
+        if (data.content) {
+          await onSave(data.content)
+          onClose()
+          return
+        }
+      }
+
+      // Fallback: format the description as a simple guard block
+      const guardId = getNextGuardId(existingContent)
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+      const name = lines[0].length > 80 ? lines[0].slice(0, 80) : lines[0]
+      const contract = lines.length > 1 ? lines.slice(1).join(' ') : lines[0]
+
+      const newBlock = [
+        '',
+        `## ${guardId}: ${name}`,
+        `- **Contract**: ${contract}`,
+        `- **Invariants**: TBD`,
+        `- **Layer**: API`,
+        `- **Risk if broken**: Medium`,
+        '',
+      ].join('\n')
+
       let fullContent = existingContent || ''
       if (!fullContent.trim()) {
         fullContent = '# Guards\n'
@@ -157,14 +153,12 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
       aria-modal="true"
       aria-labelledby="guard-modal-title"
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal */}
       <div
         ref={modalRef}
         className="relative bg-surface rounded-xl border-2 border-border card-shadow w-full max-w-2xl mx-4 p-6 space-y-4 max-h-[85vh] flex flex-col"
@@ -183,13 +177,12 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
           </button>
         </div>
 
-        <p className="text-xs text-text-muted">
+        <p className="text-xs text-text-secondary">
           {isEditing
-            ? 'Edit your guard contracts below. Each guard defines a core invariant that must never break.'
-            : 'Define a new guard in plain text. It will be formatted and appended to your existing guards.'}
+            ? 'Edit the raw markdown below.'
+            : 'Just say what should never happen, and we\'ll turn it into a guard.'}
         </p>
 
-        {/* ── Edit Mode — raw markdown textarea ── */}
         {isEditing && (
           <textarea
             ref={firstInputRef}
@@ -201,91 +194,15 @@ function GuardModal({ onClose, onSave, initialContent = '', existingContent = ''
           />
         )}
 
-        {/* ── Create Mode — structured plain text form ── */}
         {!isEditing && (
-          <div className="flex-1 overflow-y-auto space-y-3">
-            {/* Guard Name */}
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-text-secondary">Guard Name</span>
-              <input
-                ref={firstInputRef}
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Auth Token Validation"
-                className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-              />
-            </label>
-
-            {/* Contract */}
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-text-secondary">Contract</span>
-              <span className="text-[10px] text-text-muted ml-1">— What must always hold true</span>
-              <textarea
-                value={contract}
-                onChange={(e) => setContract(e.target.value)}
-                placeholder="e.g. Every API request must include a valid authentication token"
-                rows={2}
-                className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none resize-y"
-              />
-            </label>
-
-            {/* Invariants */}
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-text-secondary">Invariants</span>
-              <span className="text-[10px] text-text-muted ml-1">— Specific conditions that must not be violated</span>
-              <textarea
-                value={invariants}
-                onChange={(e) => setInvariants(e.target.value)}
-                placeholder="e.g. Token expiry checked before processing, signature verified against secret"
-                rows={2}
-                className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none resize-y"
-              />
-            </label>
-
-            {/* Layer + Risk — side by side */}
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-text-secondary">Layer</span>
-                <select
-                  value={layer}
-                  onChange={(e) => setLayer(e.target.value)}
-                  className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                >
-                  {LAYERS.map(l => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-text-secondary">Risk if Broken</span>
-                <select
-                  value={risk}
-                  onChange={(e) => setRisk(e.target.value)}
-                  className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                >
-                  {RISKS.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {/* Preview */}
-            {name.trim() && (
-              <div className="rounded-lg border border-border bg-surface-alt/50 px-3 py-2">
-                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">Preview</p>
-                <div className="text-xs text-text-secondary space-y-0.5" style={{ fontFamily: "var(--font-mono)" }}>
-                  <p className="font-semibold text-text-primary">## {getNextGuardId(existingContent)}: {name.trim()}</p>
-                  <p>- <strong>Contract</strong>: {contract.trim() || '...'}</p>
-                  <p>- <strong>Invariants</strong>: {invariants.trim() || 'TBD'}</p>
-                  <p>- <strong>Layer</strong>: {layer}</p>
-                  <p>- <strong>Risk if broken</strong>: {risk}</p>
-                </div>
-              </div>
-            )}
-          </div>
+          <textarea
+            ref={firstInputRef}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={"e.g. Never drop a database table, always use migrations instead"}
+            rows={5}
+            className="flex-1 min-h-32 bg-surface-alt border-2 border-border rounded-lg px-3 py-2.5 text-sm text-text-primary leading-relaxed resize-y focus:border-accent focus:outline-none placeholder:text-text-muted"
+          />
         )}
 
         {error && (

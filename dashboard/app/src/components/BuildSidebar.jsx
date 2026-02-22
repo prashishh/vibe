@@ -26,7 +26,7 @@ function SidebarGroup({ label, color, items, children, defaultOpen = true }) {
         <span className="text-sm font-semibold text-text-secondary flex-1">
           {label}
         </span>
-        <span className="text-xs text-text-muted tabular-nums">
+        <span className="text-xs text-text-secondary tabular-nums">
           {items.length}
         </span>
         <span className="text-[10px] text-text-muted">
@@ -68,10 +68,10 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
     <aside className="w-72 border-r border-border bg-surface-alt flex flex-col h-full flex-shrink-0">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-text-primary">Builds</h2>
+        <h2 className="text-sm font-semibold text-text-primary">Cycles</h2>
         <button
           onClick={onNewCycle}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors"
         >
           + New
         </button>
@@ -81,7 +81,7 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-text-muted">No builds yet.</p>
+            <p className="text-sm text-text-muted">No cycles yet.</p>
             <p className="text-sm text-text-muted mt-1">Click <strong className="text-text-secondary">+ New</strong> to get started.</p>
           </div>
         )}
@@ -91,7 +91,7 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
             label={group.label}
             color={group.color}
             items={group.items}
-            defaultOpen={group.key !== 'deployed'}
+            defaultOpen
           >
             {group.items.map(build => (
               <BuildSidebarItem
@@ -100,6 +100,8 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
                 selected={selectedBuildId === build.buildId}
                 onSelect={onSelectBuild}
                 isPlanning={planningBuilds.has(build.buildId)}
+                groupColor={group.color}
+                isDone={group.key === 'deployed'}
               />
             ))}
           </SidebarGroup>

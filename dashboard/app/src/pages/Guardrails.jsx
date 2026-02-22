@@ -78,7 +78,7 @@ function Guards() {
             Guards
           </h1>
           <p className="text-text-secondary">
-            Core contracts that must never break. Verified after every build.
+            Rules the agent can never break, checked on every run.
             Sourced from <code className="text-accent-hover text-sm">GUARDRAILS.md</code>.
           </p>
         </div>
@@ -155,10 +155,11 @@ function Guards() {
         ) : guardrails ? (
           <MarkdownView content={guardrails} />
         ) : (
-          <div className="text-center py-16 text-text-muted">
-            <p className="text-lg">No guards defined yet.</p>
-            <p className="text-sm mt-2">
-              Guards are core contracts that must never break. Define them to protect your project's invariants.
+          <div className="text-center py-16">
+            <img src="/mascot/calm.png" alt="Vibe Parrot" className="w-16 h-16 object-contain mx-auto mb-4 opacity-80" />
+            <p className="text-lg text-text-primary">No guards defined yet.</p>
+            <p className="text-sm mt-2 text-text-secondary">
+              Set up rules the agent should always follow, like "never drop a database table" or "all endpoints need auth."
             </p>
             <button
               onClick={handleAddClick}

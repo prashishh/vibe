@@ -41,7 +41,7 @@ function AddCardModal({ onClose, onCreate }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const handleCreate = async () => {
+  const handleCreate = async (startNow = false) => {
     if (!description.trim()) {
       setError('Describe what you want to build.')
       return
@@ -52,7 +52,7 @@ function AddCardModal({ onClose, onCreate }) {
 
     try {
       const build = await onCreate({ description, buildType })
-      onClose(build)
+      onClose(build, startNow)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -90,8 +90,8 @@ function AddCardModal({ onClose, onCreate }) {
           </button>
         </div>
 
-        <p className="text-xs text-text-muted">
-          Each cycle is a scoped unit of work — Vibe, Lite, or Full. Describe the goal and choose a type.
+        <p className="text-xs text-text-secondary">
+          What do you want to build? Pick a cycle type below.
         </p>
 
         <textarea
@@ -99,12 +99,12 @@ function AddCardModal({ onClose, onCreate }) {
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the goal of this cycle..."
+          placeholder="Describe the goal of this cycle.."
           className="w-full bg-surface-alt border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
-              handleCreate()
+              handleCreate(e.shiftKey) // Shift+Cmd+Enter = Start Now
             }
           }}
         />
@@ -113,9 +113,9 @@ function AddCardModal({ onClose, onCreate }) {
           <p className="text-xs font-medium text-text-secondary">Cycle Type</p>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { value: 'vibe', label: 'Vibe', desc: 'Quick fix or polish. AI runs autonomously, no approvals.' },
-              { value: 'lite', label: 'Lite', desc: 'Straightforward feature. One human checkpoint before shipping.' },
-              { value: 'full', label: 'Full', desc: 'Complex work. Full doc set, multiple review gates.' },
+              { value: 'vibe', label: 'Vibe', desc: 'Small tweak or polish, fully autonomous' },
+              { value: 'lite', label: 'Lite', desc: 'Standard feature with one review before shipping' },
+              { value: 'full', label: 'Full', desc: 'Bigger effort with docs and multiple review gates' },
             ].map(({ value, label, desc }) => (
               <button
                 key={value}
@@ -149,11 +149,18 @@ function AddCardModal({ onClose, onCreate }) {
             Cancel
           </button>
           <button
-            onClick={handleCreate}
+            onClick={() => handleCreate(false)}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-border text-text-secondary hover:text-text-primary hover:border-border-light disabled:opacity-50 transition-colors"
+          >
+            Save to Backlog
+          </button>
+          <button
+            onClick={() => handleCreate(true)}
             disabled={busy}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
-            {busy ? 'Creating...' : 'Create Cycle'}
+            {busy ? 'Starting...' : 'Start Now'}
           </button>
         </div>
       </div>

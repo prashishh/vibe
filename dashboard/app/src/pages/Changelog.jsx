@@ -11,16 +11,22 @@ function Changelog() {
           Changelog
         </h1>
         <p className="text-text-secondary">
-          Everything that shipped — builds and vibes.
+          Everything that shipped, cycles and vibes.
           Sourced from <code className="text-accent-hover text-sm">CHANGELOG.md</code>.
         </p>
       </div>
 
+      <div className="flex items-center gap-4 mb-8">
+        <div className="flex-1 h-px bg-border" />
+        <img src="/mascot/calm.png" alt="" className="w-10 h-10 object-contain opacity-70" />
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
       {changelog.length === 0 ? (
-        <div className="text-center py-16 text-text-muted max-w-md mx-auto">
-          <p className="text-lg">No changelog entries yet.</p>
-          <p className="text-sm mt-2 leading-relaxed">
-            Your changelog will be created automatically when the first cycle is shipped. Each shipped cycle adds an entry from its <code className="text-accent-hover">RECAP.md</code>.
+        <div className="text-center py-16 max-w-md mx-auto">
+          <p className="text-lg text-text-primary">Nothing shipped yet</p>
+          <p className="text-sm text-text-secondary mt-2 leading-relaxed">
+            Entries show up here when you ship a cycle. They're pulled from <code className="text-accent-hover">RECAP.md</code>.
           </p>
 
           {/* Preview of what a changelog entry will look like */}
@@ -39,7 +45,7 @@ function Changelog() {
                 <ul className="space-y-1">
                   <li className="flex items-start gap-2 text-sm">
                     <span className="mt-1.5 w-1 h-1 rounded-full flex-shrink-0 bg-text-muted" />
-                    <span className="text-text-secondary">Changes from your build will appear here...</span>
+                    <span className="text-text-secondary">Changes from your cycle will appear here...</span>
                   </li>
                 </ul>
               </div>

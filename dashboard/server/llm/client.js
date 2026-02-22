@@ -1,33 +1,7 @@
-class LLMClient {
-  constructor(config = {}) {
-    this.provider = config.provider || 'mock';
-    this.model = config.model || 'mock-model';
-    this.apiKey = config.apiKey || '';
-    this.temperature = config.temperature ?? 0.3;
-    this.maxTokens = config.maxTokens ?? 2048;
-  }
+'use strict';
 
-  async chat(messages) {
-    const last = messages[messages.length - 1]?.content || '';
-    return this.mockResponse(String(last));
-  }
-
-  mockResponse(text) {
-    return `Mock response for: ${text.slice(0, 120)}`;
-  }
-
-  async testConnection() {
-    const hasKey = Boolean(this.apiKey && !String(this.apiKey).startsWith('${'));
-    return {
-      ok: hasKey,
-      provider: this.provider,
-      model: this.model,
-      message: hasKey
-        ? 'Configuration looks valid. Network check is skipped in local validation mode.'
-        : 'API key is missing or unresolved.',
-    };
-  }
-}
+// Utility functions for building task objects from user prompts.
+// These are pure helpers — no API calls, no external dependencies.
 
 function dedupe(items) {
   return Array.from(new Set(items.filter(Boolean)));
@@ -85,6 +59,5 @@ function buildTaskFromPrompt(prompt) {
 }
 
 module.exports = {
-  LLMClient,
   buildTaskFromPrompt,
 };

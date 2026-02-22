@@ -636,9 +636,9 @@ function BuildChat({ buildId, onSendChat, disabled, pendingQuestions = [] }) {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            disabled ? 'Wait for processing to finish...'
-            : showQuestionsBanner ? 'Answer the runner\'s questions...'
-            : 'Update plan, tasks, or docs...'
+            disabled ? 'Wait for processing to finish..'
+            : showQuestionsBanner ? 'Answer the runner\'s questions..'
+            : 'Update plan, tasks, or docs..'
           }
           disabled={disabled || sending}
           rows={1}
@@ -1000,7 +1000,7 @@ function ExecutionView({
         <ProgressBanner
           theme="warning"
           title="Planning in progress"
-          subtitle="Invoking skill, reading project context, generating build docs..."
+          subtitle="Reading the project and figuring out what to do..."
         />
       )}
       {!isPlanning && buildInfo.status === 'in_progress' && runningCount > 0 && (
@@ -1158,7 +1158,7 @@ function ExecutionView({
             {/* Live Output — DOM-direct terminal rendering for zero-lag streaming */}
             {showLiveOutput && (
               <section className="p-4">
-                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
                   Live Output
                 </h4>
                 <div
@@ -1179,12 +1179,12 @@ function ExecutionView({
         {/* ── Settings Tab ───────────────────────────────────────── */}
         {activeTab === 'settings' && (
           <div className="p-4 space-y-6">
-            {/* Build info */}
+            {/* Cycle info */}
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Build Info</h4>
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Cycle Info</h4>
               <div className="rounded-lg border border-border bg-surface p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-text-muted">Build ID</span>
+                  <span className="text-[11px] text-text-muted">Cycle ID</span>
                   <span className="text-[11px] text-text-primary" style={{ fontFamily: "var(--font-mono)" }}>{buildInfo.buildId}</span>
                 </div>
                 <div className="flex items-center justify-between">

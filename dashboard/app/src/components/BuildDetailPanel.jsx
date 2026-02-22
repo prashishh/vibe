@@ -502,6 +502,7 @@ const DOC_TAB_MAP = [
 // ─── Main BuildDetailPanel ───────────────────────────────────────────────────
 function BuildDetailPanel({
   onDelete,
+  onClose,
   onSaveDoc,
   onPatchTask,
   onExecuteTask,
@@ -624,7 +625,7 @@ function BuildDetailPanel({
   if (!buildInfo) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface">
-        <p className="text-sm text-text-muted">Select a build to view details.</p>
+        <p className="text-sm text-text-muted">Select a cycle to view details.</p>
       </div>
     )
   }
@@ -660,6 +661,18 @@ function BuildDetailPanel({
               <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${typeClass}`}>
                 {typeLabel}
               </span>
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="ml-1 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+                  aria-label="Close cycle"
+                  title="Close cycle"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -690,7 +703,7 @@ function BuildDetailPanel({
 
         {/* Action buttons */}
         {onAction && buildInfo.status === 'pending' && !isPlanning && (
-          <div className="px-6 py-3 border-b border-border">
+          <div className="px-6 py-3 border-b border-border flex justify-end">
             <button
               onClick={() => onAction(buildInfo.buildId, 'planning', buildInfo.status)}
               className="px-6 py-2 rounded-lg text-sm font-semibold bg-[#7c3aed] text-white hover:bg-[#7c3aed]/90 transition-colors"
@@ -700,7 +713,7 @@ function BuildDetailPanel({
           </div>
         )}
         {onAction && buildInfo.status === 'planning' && !isPlanning && (
-          <div className="px-6 py-3 border-b border-border">
+          <div className="px-6 py-3 border-b border-border flex justify-end">
             {hasOpenQuestions ? (
               <button
                 disabled
@@ -723,7 +736,7 @@ function BuildDetailPanel({
           const blockedCountLocal = tasks.filter(t => t.status === 'blocked').length
           const hasUnfinished = pendingCount > 0 || blockedCountLocal > 0
           return (
-            <div className="px-6 py-3 border-b border-border flex items-center gap-3">
+            <div className="px-6 py-3 border-b border-border flex items-center justify-end gap-3">
               {hasUnfinished && (
                 <button
                   onClick={() => onAction(buildInfo.buildId, 'in_progress', buildInfo.status)}
@@ -745,7 +758,7 @@ function BuildDetailPanel({
           )
         })()}
         {onAction && buildInfo.status === 'review' && (
-          <div className="px-6 py-3 border-b border-border flex items-center gap-3">
+          <div className="px-6 py-3 border-b border-border flex items-center justify-end gap-3">
             <button
               onClick={() => onAction(buildInfo.buildId, 'deployed', buildInfo.status)}
               className="px-6 py-2 rounded-lg text-sm font-semibold bg-success text-white hover:bg-success/90 transition-colors"
@@ -778,7 +791,7 @@ function BuildDetailPanel({
           <ProgressBanner
             theme="warning"
             title="Planning in progress"
-            subtitle="Invoking skill, reading project context, generating build docs..."
+            subtitle="Reading the project and figuring out what to do..."
           />
         )}
         {!isPlanning && buildInfo.status === 'in_progress' && runningCount > 0 && (
@@ -934,8 +947,8 @@ function BuildDetailPanel({
             {buildInfo.status === 'blocked' && (
               <div className="p-6">
                 <div className="rounded-lg border border-danger/30 bg-danger/5 p-4">
-                  <p className="text-xs font-medium text-danger">This build is blocked.</p>
-                  <p className="text-xs text-text-muted mt-1">Resolve the issue and change status to continue.</p>
+                  <p className="text-xs font-medium text-danger">Blocked</p>
+                  <p className="text-xs text-text-muted mt-1">Fix the issue and update the status to keep going.</p>
                 </div>
               </div>
             )}
@@ -947,10 +960,10 @@ function BuildDetailPanel({
         {activeTab === 'settings' && (
           <div className="p-6 space-y-6">
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Build Info</h4>
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Cycle Info</h4>
               <div className="rounded-lg border border-border bg-surface-alt p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-text-muted">Build ID</span>
+                  <span className="text-xs text-text-muted">Cycle ID</span>
                   <span className="text-xs text-text-primary" style={{ fontFamily: 'var(--font-mono)' }}>{buildInfo.buildId}</span>
                 </div>
                 <div className="flex items-center justify-between">

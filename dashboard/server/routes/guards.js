@@ -49,6 +49,88 @@ function createGuardsRouter() {
     }
   });
 
+  // POST /api/guards/from-description — create a guard from a plain text description
+  router.post('/from-description', async (req, res) => {
+    try {
+      const { description } = req.body || {};
+
+      if (!description || !description.trim()) {
+        return res.status(400).json({ error: 'Description is required.' });
+      }
+
+      const filePath = resolveGuardsPath();
+
+      // Read existing content
+      let existing = '';
+      try {
+        existing = await fs.readFile(filePath, 'utf8');
+      } catch {
+        // File doesn't exist yet
+      }
+
+      // Determine next guard ID
+      const idPattern = /##\s*G-(\d+):/g;
+      let maxNum = 0;
+      let match;
+      while ((match = idPattern.exec(existing)) !== null) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+      const nextId = `G-${String(maxNum + 1).padStart(2, '0')}`;
+
+      // Parse the description into structured guard fields
+      const text = description.trim();
+      const sentences = text.split(/\.\s+/).map(s => s.trim()).filter(Boolean);
+      const name = sentences[0].length > 80
+        ? sentences[0].slice(0, 80).replace(/\s+\S*$/, '')
+        : sentences[0].replace(/\.$/, '');
+      const contract = sentences[0].replace(/\.$/, '');
+      const invariants = sentences.length > 1
+        ? sentences.slice(1).map(s => s.replace(/\.$/, '')).join('; ')
+        : 'TBD';
+
+      // Guess the layer from keywords
+      const lower = text.toLowerCase();
+      let layer = 'API';
+      if (/(browser|dom|ui|frontend|css|html|render)/.test(lower)) layer = 'Browser';
+      else if (/(database|sql|migration|schema|table|query)/.test(lower)) layer = 'Database';
+      else if (/(contract|invariant|type|interface|module)/.test(lower)) layer = 'Contract';
+
+      // Guess risk from keywords
+      let risk = 'Medium';
+      if (/(critical|total|security|auth|payment|encryption|secret)/.test(lower)) risk = 'High';
+      else if (/(minor|cosmetic|display|label|text)/.test(lower)) risk = 'Low';
+
+      const newBlock = [
+        '',
+        `## ${nextId}: ${name}`,
+        `- **Contract**: ${contract}`,
+        `- **Invariants**: ${invariants}`,
+        `- **Layer**: ${layer}`,
+        `- **Risk if broken**: ${risk}`,
+        '',
+      ].join('\n');
+
+      let fullContent = existing || '';
+      if (!fullContent.trim()) {
+        fullContent = '# Guards\n';
+      }
+      fullContent = fullContent.trimEnd() + '\n' + newBlock;
+
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, fullContent, 'utf8');
+
+      return res.json({
+        ok: true,
+        content: fullContent,
+        newGuard: { id: nextId, name },
+        path: filePath,
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // POST /api/guards/generate — format and append a new guard from plain text fields
   router.post('/generate', async (req, res) => {
     try {

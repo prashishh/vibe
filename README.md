@@ -7,14 +7,10 @@ Vibe is an agentic software delivery framework that gives AI coding assistants a
 ## Setup
 
 ```bash
-git clone https://github.com/prashishrajbhandari/vibe.git ~/.vibe
-cd ~/.vibe && ./install.sh
-```
-
-The installer copies framework files to `~/.vibe`, installs Claude Code skills if detected, and sets up dashboard dependencies. To also get the `vibe` CLI command, link it locally:
-
-```bash
-cd ~/.vibe && npm link
+git clone https://github.com/prashishrajbhandari/vibe.git ~/src/vibe
+cd ~/src/vibe
+npm install
+npm link
 ```
 
 Then initialize any project with the CLI:
@@ -24,7 +20,7 @@ cd /path/to/your-project
 vibe init
 ```
 
-This runs an interactive setup and creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with templates and configuration.
+This runs an interactive setup, installs skills for your chosen AI assistant, and creates a `.vibe/` directory in the project with templates, build tracking, and configuration. Guards are generated separately via `/guards` (written to `.vibe/GUARDS.md`).
 
 Alternatively, if you are inside Claude Code or Codex, you can run the `/start` skill directly from the chat instead of using the CLI.
 
@@ -59,7 +55,7 @@ New work arrives
 
 ### Commands
 
-**Autonomous workflows** (end to end):
+**Autonomous workflows** (end-to-end):
 
 | Command | What It Does |
 |---------|-------------|
@@ -67,7 +63,7 @@ New work arrives
 | `/lite <feature>` | Feature build: brainstorm, plan, execute, verify, recap. |
 | `/full <feature>` | Complex build: full document set with multiple checkpoints. |
 
-**Manual workflows** (step by step):
+**Manual workflows** (step-by-step):
 
 | Command | What It Does |
 |---------|-------------|
@@ -78,7 +74,7 @@ New work arrives
 | `/ship` | Deployment checklist |
 | `/recap` | Close build with summary |
 | `/propose` | Suggest next build from previous seeds |
-| `/start` | One time initialization (skill equivalent of `vibe init`) |
+| `/start` | One-time initialization (skill equivalent of `vibe init`) |
 
 ### Example: Quick Fix
 
@@ -94,7 +90,7 @@ The agent writes the fix, runs guard checks, commits with a `vibe:` prefix, and 
 /lite add CSV export to the admin dashboard
 ```
 
-The agent opens with clarifying questions about scope, success criteria, and risk. Once answered it generates `builds/v2/GOAL.md` and `builds/v2/TASKS.md`, pauses for approval, executes all tasks, then closes with `builds/v2/RECAP.md`.
+The agent drafts `.vibe/builds/v2/GOAL.md` and `.vibe/builds/v2/TASKS.md`, pauses for approval, executes tasks, then closes with `.vibe/builds/v2/RECAP.md`. If something is genuinely ambiguous, it asks a small number of targeted questions before proceeding.
 
 A `GOAL.md` looks like this:
 
@@ -126,11 +122,11 @@ Add CSV export to the admin dashboard so admins can download filtered user data.
 /full implement SSO authentication with Google and GitHub
 ```
 
-The agent runs a deep brainstorming session covering architecture, data model changes, API contracts, risk areas, and rollback strategy. It generates the full document set (GOAL, PLAN, DESIGN, TASKS), pauses for approval, executes tasks autonomously, then requires a passing REVIEW and completed SHIP checklist before the build can close.
+The agent generates the full document set (GOAL, PLAN, DESIGN, TASKS), pauses for approval, executes tasks, then requires a passing REVIEW and completed SHIP checklist before the build can close.
 
 ### Guards
 
-Guards are append-only safety contracts that define what must never break. They are generated during `vibe init` (or `/start` inside the AI assistant) based on the project type, and every build must pass all of them before it can close. Examples include authentication boundaries, authorization rules, data integrity, and core user flows.
+Guards are append-only safety contracts that define what must never break. Generate them with `/guards` (writes `.vibe/GUARDS.md`), then use `/check` to verify them against the codebase. Every build must pass guards before it can close.
 
 New guards can be added as the project grows. Existing guards can never be weakened or removed.
 
@@ -143,8 +139,8 @@ If a `/vibe` quick fix breaks a guard or grows past three tasks, the framework p
 A visual interface for the full build lifecycle, running locally at `http://localhost:5173`.
 
 ```bash
-cd ~/.vibe/dashboard/server && node index.js &
-cd ~/.vibe/dashboard/app && npm run dev
+cd /path/to/your-project
+vibe dashboard
 ```
 
 From the dashboard you can create and plan builds, watch task execution stream live, run tasks in parallel, view guard status across builds, browse all build documents, and answer agent questions when it needs input.
@@ -153,16 +149,19 @@ From the dashboard you can create and plan builds, watch task execution stream l
 
 ```
 your-project/
-├── GUARDS.md                 Append only safety contracts
-├── CHANGELOG.md              Build history
-├── builds/
-│   └── v1/
-│       ├── GOAL.md           What and why
-│       ├── TASKS.md          Work breakdown + status
-│       └── RECAP.md          What shipped
 └── .vibe/
-    ├── core/VIBE.md          Framework spec
-    └── templates/            Build document templates
+    ├── builds/               Build folders (created when you run builds)
+    │   └── v1/
+    │       ├── GOAL.md        What and why
+    │       ├── TASKS.md       Work breakdown + status
+    │       └── RECAP.md       What shipped
+    ├── core/
+    │   └── VIBE.md            Framework spec
+    ├── templates/             Build document templates
+    ├── CHANGELOG.md           Build history (in .vibe/)
+    ├── GUARDS.md              Safety contracts (generate with /guards)
+    ├── llm-config.json        LLM profiles
+    └── dashboard-config.json  Dashboard wiring
 ```
 
 ## Repository Layout
@@ -170,7 +169,7 @@ your-project/
 ```
 core/                         Framework specification and guard templates
 templates/build/              Full build templates (9 documents)
-templates/lite/               Lite build templates (4 documents)
+templates/lite/               Lite build templates (3 documents)
 adapters/claude/commands/     Claude Code skill definitions (with allowed-tools frontmatter)
 adapters/codex/commands/      Codex skill definitions
 adapters/generic/commands/    Agent-agnostic skills for Cursor, Windsurf, Copilot, Aider, etc.

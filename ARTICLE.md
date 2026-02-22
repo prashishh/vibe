@@ -1,12 +1,12 @@
 ---
-title: "Vibe: An Opinionated Framework for Agentic Software Delivery"
+title: "Vibe: A Plan-First, Opinionated Framework for Agentic Software Delivery"
 date: 2026-02-22
 ---
 
 ![Vibe mascot](./screenshots/mascot.png)
 *[PLACEHOLDER: Vibe mascot]*
 
-## What Is Vibe
+## Overview
 
 Vibe is an agentic software delivery framework. It gives AI coding assistants a structured way to plan, execute, and verify work inside any repository. Instead of typing instructions into a terminal and hoping the agent figures out the right sequence of steps, Vibe provides a set of skills that define the entire workflow from goal to shipped code.
 
@@ -14,7 +14,7 @@ The framework currently works with Claude Code and Codex, and the adapter system
 
 There is also a visual dashboard that lets developers plan builds, watch execution in real time, and manage tasks without touching the command line at all.
 
-## Why It Exists
+## Why Vibe Exists
 
 AI coding assistants have gotten very good at writing code. The problem is that writing code is only one part of shipping software. Planning what to build, breaking work into tasks, verifying that nothing broke, and documenting what shipped are all still manual processes that most developers handle ad hoc or skip entirely.
 
@@ -22,20 +22,25 @@ Sprints and ticket systems were designed for human teams coordinating over weeks
 
 The framework is opinionated on purpose. It has a defined process for every type of task, it enforces planning before execution, and it uses permanent safety contracts called guards to protect core behavior across every build.
 
-## Getting Started
+### Plan-First Delivery Loop
 
-Clone the repository and run the installer. Once installed, run `vibe init` from the terminal inside any project to go through the interactive setup. This creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with all templates and configuration.
+Vibe treats planning as a first-class phase: the agent drafts a concrete goal and task list up front, then iterates during execution until verification passes.
 
-If working directly inside Claude Code or Codex, the `/start` skill does the same thing from within the AI assistant chat. The CLI (`vibe init`) and the skill (`/start`) are two paths to the same setup. Full setup instructions are in the [README](./README.md).
+```mermaid
+flowchart LR
+  A["Request"] --> B["Draft GOAL"]
+  B --> C["Draft TASKS"]
+  C --> D["Execute"]
+  D --> E["Verify (guards/tests)"]
+  E -->|Adjust tasks| C
+  E -->|Done| F["Recap / ship"]
+```
 
-![Vibe Dashboard](./screenshots/dashboard-main.png)
-*[PLACEHOLDER: Dashboard screenshot showing active build with live streaming agent output and task queue]*
-
-## The Skill System
+## Skills and Workflows
 
 Vibe ships with a set of skills that the AI assistant can invoke directly. These fall into two categories: autonomous workflows that run end to end, and manual commands that give step by step control.
 
-### Autonomous Workflows
+### Autonomous Workflows (Tiers)
 
 | Command | Scope | Risk | What It Does |
 |---|---|---|---|
@@ -43,7 +48,7 @@ Vibe ships with a set of skills that the AI assistant can invoke directly. These
 | `/lite <feature>` | 3 to 8 tasks | Low to Medium | Brainstorm, generate GOAL and TASKS, execute, verify, recap. |
 | `/full <feature>` | 8+ tasks | Any | Full document set, multiple approval checkpoints, review and ship gates. |
 
-### Manual Commands
+### Manual Commands (Building Blocks)
 
 | Command | What It Does |
 |---|---|
@@ -55,30 +60,46 @@ Vibe ships with a set of skills that the AI assistant can invoke directly. These
 | `/recap` | Close the build, update the changelog, suggest next steps |
 | `/propose` | Suggest the next build using seeds from the last recap |
 
-### Auto Promotion
+### Automatic Tier Promotion
 
 The framework detects when work outgrows its tier. If a `/vibe` quick fix breaks a guard or expands past three tasks, the framework automatically promotes it to a `/lite` or `/full` build. Developers do not need to predict complexity upfront.
 
-## How Workflows Flow
+## End-to-End Workflow
 
 Every piece of work is assigned to one of three tiers based on scope and risk. Each tier runs a defined sequence of phases and produces a specific set of documents.
 
-```
-New work arrives
-│
-├─ 1 to 3 tasks, Low risk, no core changes
-│   └─ /vibe  →  implement  →  check  →  commit  →  changelog
-│
-├─ 3 to 8 tasks, Low or Medium risk, no architecture change
-│   └─ /lite  →  brainstorm  →  GOAL + TASKS  →  execute  →  check  →  RECAP
-│
-└─ 8+ tasks, High risk, or architecture involved
-    └─ /full  →  brainstorm  →  GOAL + PLAN + DESIGN + TASKS
-                           →  execute  →  check  →  REVIEW gate
-                           →  SHIP gate  →  RECAP
+```mermaid
+flowchart TD
+  A["New work arrives"] --> B{"Scope + risk"}
+
+  B -->|1–3 tasks\nLow risk\nNo core changes| V["/vibe"]
+  B -->|3–8 tasks\nLow–Medium risk\nNo architecture change| L["/lite"]
+  B -->|8+ tasks\nHigh risk\nor architecture involved| F["/full"]
+
+  V --> V1["Implement"]
+  V1 --> V2["Check (guards/tests)"]
+  V2 --> V3["Commit"]
+  V3 --> V4["Changelog"]
+  V2 -->|Guard fails or scope expands| P["Auto-promote"] --> B
+
+  L --> L1["Brainstorm"]
+  L1 --> L2["GOAL + TASKS"]
+  L2 --> L3["Execute"]
+  L3 --> L4["Check"]
+  L4 --> L5["RECAP"]
+
+  F --> F1["Brainstorm"]
+  F1 --> F2["GOAL + PLAN + DESIGN + TASKS"]
+  F2 --> F3["Execute"]
+  F3 --> F4["Check"]
+  F4 --> F5{"REVIEW gate\nPASS?"}
+  F5 -->|No| F3
+  F5 -->|Yes| F6{"SHIP gate\nComplete?"}
+  F6 -->|No| F3
+  F6 -->|Yes| F7["RECAP"]
 ```
 
-### What Each Workflow Publishes
+### Build Artifacts (Documents)
 
 Documents live inside a versioned build folder (`builds/vN/`). Quick fixes produce no build folder, just a commit and a one-line changelog entry.
 
@@ -97,13 +118,13 @@ Documents live inside a versioned build folder (`builds/vN/`). Quick fixes produ
 
 For `/full` builds, `REVIEW.md` must reach PASS status and `SHIP.md` must be fully checked off before the build can close. These are hard gates, not suggestions.
 
-### Example: Starting a Lite Build
+### Example: Starting a `/lite` Build
 
 ```
 /lite add user avatar upload to profile settings
 ```
 
-The agent opens with clarifying questions about scope, success criteria, edge cases, and risk. Once answered it generates `builds/v3/GOAL.md` and `builds/v3/TASKS.md`, pauses for approval, then executes all tasks autonomously and finishes with `builds/v3/RECAP.md`.
+The agent typically drafts `builds/v3/GOAL.md` and `builds/v3/TASKS.md` immediately, pauses for approval, then executes tasks and finishes with `builds/v3/RECAP.md`. If anything is ambiguous or risky, it will ask a small number of targeted questions before proceeding.
 
 A `GOAL.md` looks like this:
 
@@ -135,7 +156,7 @@ Stored in object storage, served via CDN. No third-party auth changes.
 
 And `TASKS.md` breaks that into individual tasks, each with an outcome statement, acceptance criteria, risk level, and rollback plan.
 
-## Guards
+## Guards (Safety Contracts)
 
 Guards are append-only safety contracts that define what must never break. A guard is a higher-level statement about core behavior: unauthenticated requests must return 401, unauthorized writes must produce no state change, sensitive data must never appear in logs.
 
@@ -171,15 +192,24 @@ A typical `GUARDS.md` after initialization looks like this:
 - Risk if broken: Critical
 ```
 
-## The Dashboard
+## Dashboard (Visual Control Plane)
 
 The dashboard is a React application backed by a Node.js server with WebSocket support. It covers the full build lifecycle: creating and planning builds visually, watching task execution stream live, reviewing guard status across builds, browsing all build documents, and answering agent questions when it needs human input. A command reference inside the dashboard includes workflow diagrams for each skill. There is also a settings page for configuring LLM providers, concurrency limits, and file sync options.
+
+![Vibe Dashboard](./screenshots/dashboard-main.png)
+*[PLACEHOLDER: Dashboard screenshot showing active build with live streaming agent output and task queue]*
 
 ![Vibe Dashboard — build detail](./screenshots/dashboard-build-detail.png)
 *[PLACEHOLDER: Dashboard screenshot showing build detail with GOAL.md, TASKS.md rendered alongside live guard status]*
 
-## Current State
+## Project Status
 
 This is an early alpha version. The core workflow, the dashboard, and the skill system are all functional and have been tested primarily with Claude Code. The adapter system supports Claude Code and Codex today, with skeleton adapters in place for Cursor, Windsurf, GitHub Copilot, Aider, Cline, and several others. Expanding and validating those integrations is the immediate next step.
 
 The guard verification system will eventually support agent-level checks where guards described in natural language are validated by the AI itself. The parallel execution engine needs better dependency detection for builds where certain tasks genuinely depend on earlier results. These improvements and many others will come as the framework matures alongside the broader ecosystem of AI-assisted development tools.
+
+## Quick Start
+
+Clone the repository and run the installer. Once installed, run `vibe init` from the terminal inside any project to go through setup. This creates `GUARDS.md`, a `builds/` directory, and a `.vibe/` folder with templates and configuration.
+
+If working directly inside Claude Code or Codex, the `/start` skill does the same thing from within the assistant chat. Full setup instructions are in the [README](./README.md).

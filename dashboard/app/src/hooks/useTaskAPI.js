@@ -200,6 +200,14 @@ export function useTaskAPI(buildId) {
     return data.result
   }, [])
 
+  const generalChat = useCallback(async (message, chatHistory = []) => {
+    const data = await request('/api/tasks/chat/general', {
+      method: 'POST',
+      body: JSON.stringify({ message, chatHistory }),
+    })
+    return data
+  }, [])
+
   const fetchChatHistory = useCallback(async (targetBuildId) => {
     const id = targetBuildId || buildId
     if (!id) return []
@@ -250,6 +258,7 @@ export function useTaskAPI(buildId) {
     fetchDocs,
     saveDoc,
     sendChat,
+    generalChat,
     fetchChatHistory,
   }), [
     builds,
@@ -274,6 +283,7 @@ export function useTaskAPI(buildId) {
     fetchDocs,
     saveDoc,
     sendChat,
+    generalChat,
     fetchChatHistory,
   ])
 
@@ -291,14 +301,6 @@ export async function saveLLMConfig(config) {
     body: JSON.stringify(config),
   })
   return data.config
-}
-
-export async function testLLMConfig(profile) {
-  const data = await request('/api/llm/test', {
-    method: 'POST',
-    body: JSON.stringify({ profile }),
-  })
-  return data.result
 }
 
 export async function testRunnerConfig(runner) {

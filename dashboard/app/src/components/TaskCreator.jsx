@@ -91,7 +91,7 @@ function TaskCreator({ onCreate, onEnhance }) {
         rows={2}
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}
-        placeholder="Describe the task in natural language..."
+        placeholder="Describe the task in natural language.."
         className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm text-text-primary"
       />
 

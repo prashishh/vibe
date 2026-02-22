@@ -26,7 +26,7 @@ function BuildDetail() {
   if (!build) {
     return (
       <div className="max-w-[1440px] mx-auto px-6 py-8 text-center">
-        <p className="text-lg text-text-muted">Build {version} not found.</p>
+        <p className="text-lg text-text-muted">Cycle {version} not found.</p>
         <Link to="/" className="text-accent-hover hover:underline mt-4 inline-block">
           Back to dashboard
         </Link>
@@ -47,7 +47,7 @@ function BuildDetail() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-6 text-sm">
         <Link to="/" className="text-text-muted hover:text-text-primary transition-colors no-underline">
-          Builds
+          Cycles
         </Link>
         <span className="text-text-muted">/</span>
         <span className="text-text-primary font-medium">{version}</span>

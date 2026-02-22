@@ -227,9 +227,9 @@ function TerminalChat({
   // Determine placeholder text
   let placeholder
   if (hasOpenQuestions) {
-    placeholder = "Answer the agent's questions..."
+    placeholder = "Answer the agent's questions.."
   } else if (buildId) {
-    placeholder = 'Message the agent or type / for commands...'
+    placeholder = 'Message the agent or type / for commands..'
   } else {
     placeholder = 'What do you want to build? (or type / for commands)'
   }

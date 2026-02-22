@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import BuildSidebar from './BuildSidebar.jsx'
 import BuildDetailPanel from './BuildDetailPanel.jsx'
 import AgentPanel from './AgentPanel.jsx'
@@ -12,7 +13,12 @@ const MAX_LIVE_LINES = 500
 const STORAGE_KEY = 'vibe-selected-build'
 
 function AgentWorkspace() {
+  const { buildId: urlBuildId } = useParams()
+  const navigate = useNavigate()
+
   const [selectedBuildId, setSelectedBuildId] = useState(() => {
+    // URL param takes priority, then localStorage fallback
+    if (urlBuildId) return urlBuildId
     try { return localStorage.getItem(STORAGE_KEY) || '' } catch { return '' }
   })
   const [showAddModal, setShowAddModal] = useState(false)
@@ -42,6 +48,7 @@ function AgentWorkspace() {
     fetchDocs,
     saveDoc,
     sendChat,
+    generalChat,
     fetchChatHistory,
     patchTask,
     startExecution,
@@ -234,6 +241,33 @@ function AgentWorkspace() {
     onChatMessage,
   })
 
+  // ── Sync URL → state: if on root `/`, always clear selection ───────────────
+  useEffect(() => {
+    if (!urlBuildId && selectedBuildId) {
+      // We're on root, clear any stale selection
+      setSelectedBuildId('')
+      setChatMessages([])
+      setLiveLines([])
+      setPendingQuestions([])
+      setQuestionsDismissed(false)
+      pendingActivityRef.current = []
+      setIsAgentThinking(false)
+    } else if (urlBuildId && urlBuildId !== selectedBuildId) {
+      // URL has a buildId that differs from state
+      setSelectedBuildId(urlBuildId)
+    }
+  }, [urlBuildId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Redirect if URL buildId doesn't exist in builds list ──────────────────
+  useEffect(() => {
+    if (urlBuildId && !loading && builds.length > 0) {
+      const exists = builds.some(b => b.buildId === urlBuildId)
+      if (!exists) {
+        navigate('/', { replace: true })
+      }
+    }
+  }, [urlBuildId, builds, loading, navigate])
+
   // ── Persist selected build to localStorage ─────────────────────────────────
   useEffect(() => {
     try {
@@ -242,7 +276,7 @@ function AgentWorkspace() {
     } catch { /* ignore */ }
   }, [selectedBuildId])
 
-  // ── Load chat history on mount if build was restored from localStorage ─────
+  // ── Load chat history on mount if build was restored from URL ──────────────
   const mountedRef = useRef(false)
   useEffect(() => {
     if (mountedRef.current) return
@@ -596,8 +630,11 @@ function AgentWorkspace() {
       setBuildDocs(docs)
       await refreshTasks(selectedBuildId)
       await refreshBuilds()
-      // The assistant response arrives via SSE chat-message event.
-      // If it didn't arrive yet (race), it will arrive shortly.
+      // Clear thinking state on success. The SSE chat-message event
+      // may have already cleared it, but this ensures it doesn't stick
+      // if the SSE event is delayed or lost.
+      setIsAgentThinking(false)
+      setLiveLines([])
       return result
     } catch (err) {
       setIsAgentThinking(false)
@@ -606,10 +643,63 @@ function AgentWorkspace() {
     }
   }
 
+  // General chat when no build is selected — CLI runner handles everything
+  const handleGeneralChat = async (message) => {
+    // Add user message to chat thread
+    setChatMessages(prev => [...prev, {
+      id: `msg-user-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+      role: 'user',
+      content: message,
+      timestamp: new Date().toISOString(),
+      activity: [],
+    }])
+    setIsAgentThinking(true)
+    setLiveLines([])
+
+    try {
+      // Pass recent chat messages for multi-turn context
+      const recentHistory = chatMessages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+      }))
+      const result = await generalChat(message, recentHistory)
+
+      if (result.action === 'create_build') {
+        // CLI runner detected build intent — proceed with auto-create + plan
+        setIsAgentThinking(false)
+        await handleCommand({ command: 'new', description: result.description || message, buildType: 'vibe' })
+        return
+      }
+
+      // Conversational response — add to chat thread
+      setIsAgentThinking(false)
+      setLiveLines([])
+      setChatMessages(prev => [...prev, {
+        id: `msg-asst-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+        role: 'assistant',
+        content: result.response || 'I can help you with that. Try describing what you want to build.',
+        timestamp: new Date().toISOString(),
+        activity: [],
+      }])
+    } catch (err) {
+      setIsAgentThinking(false)
+      setLiveLines([])
+      // Show error in chat instead of silently creating a build
+      setChatMessages(prev => [...prev, {
+        id: `msg-err-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+        role: 'assistant',
+        content: `Sorry, I couldn't process that: ${err.message}. Make sure your CLI runner is installed and configured in Settings.`,
+        timestamp: new Date().toISOString(),
+        activity: [],
+      }])
+    }
+  }
+
   const handleDeleteBuild = async (buildId) => {
     try {
       await removeBuild(buildId)
       setSelectedBuildId('')
+      navigate('/')
       setChatMessages([])
       setLiveLines([])
       setHasLogsByBuild(prev => {
@@ -637,13 +727,35 @@ function AgentWorkspace() {
       }
     }
     setSelectedBuildId(buildId)
+    // Sync URL
+    if (buildId) {
+      navigate(`/cycle/${buildId}`)
+    } else {
+      navigate('/')
+    }
   }
 
-  const handleAddCardClose = (build) => {
+  const handleCloseCycle = () => {
+    setChatMessages([])
+    setLiveLines([])
+    setPendingQuestions([])
+    setQuestionsDismissed(false)
+    pendingActivityRef.current = []
+    setIsAgentThinking(false)
+    setSelectedBuildId('')
+    navigate('/')
+  }
+
+  const handleAddCardClose = async (build, startNow = false) => {
     setShowAddModal(false)
     if (build?.buildId) {
-      refreshBuilds()
+      await refreshBuilds()
       setSelectedBuildId(build.buildId)
+      navigate(`/cycle/${build.buildId}`)
+      if (startNow) {
+        // Immediately start planning
+        await handleStatusTransition(build.buildId, 'planning', 'pending')
+      }
     }
   }
 
@@ -693,10 +805,13 @@ function AgentWorkspace() {
           })
           await refreshBuilds()
           setSelectedBuildId(build.buildId)
+          navigate(`/cycle/${build.buildId}`)
           // Load fresh chat for the new build
           setChatMessages([])
           setLiveLines([])
-          msg(`Created ${build.buildId}`)
+          msg(`Created ${build.buildId} — starting planning...`)
+          // Auto-start planning so the agent begins working immediately
+          await handleStatusTransition(build.buildId, 'planning', 'pending')
         } catch (err) {
           msg(`Failed to create cycle: ${err.message}`)
         }
@@ -771,15 +886,15 @@ function AgentWorkspace() {
           : builds
         if (filtered.length === 0) {
           msg(parsed.statusFilter
-            ? `No builds with status "${parsed.statusFilter}".`
-            : 'No builds yet. Describe what you want to build to get started.')
+            ? `No cycles with status "${parsed.statusFilter}".`
+            : 'No cycles yet. Describe what you want to build to get started.')
           return
         }
         const lines = filtered.map(b => {
           const marker = b.buildId === selectedBuildId ? ' \u2190' : ''
           return `\u2022 **${b.buildId}**${marker} \u2014 ${b.status} \u2014 ${b.description || '(no description)'}`
         })
-        msg(`Builds${parsed.statusFilter ? ` (${parsed.statusFilter})` : ''}:\n${lines.join('\n')}`)
+        msg(`Cycles${parsed.statusFilter ? ` (${parsed.statusFilter})` : ''}:\n${lines.join('\n')}`)
         break
       }
 
@@ -795,8 +910,8 @@ function AgentWorkspace() {
           '`/build` \u2014 Start building\n' +
           '`/review` \u2014 Move to review\n' +
           '`/ship` \u2014 Ship / deploy\n' +
-          '`/status` \u2014 Show build info\n' +
-          '`/list` \u2014 List all builds\n' +
+          '`/status` \u2014 Show cycle info\n' +
+          '`/list` \u2014 List all cycles\n' +
           '`/clear` \u2014 Clear messages\n\n' +
           'Or just type naturally \u2014 the agent understands.')
         break
@@ -805,7 +920,7 @@ function AgentWorkspace() {
         msg(`Unknown command: ${parsed.raw.split(' ')[0]}. Type /help for commands.`)
         break
     }
-  }, [selectedBuildId, builds, createBuild, refreshBuilds, handleStatusTransition, handleSelectBuild, addSystemMessage])
+  }, [selectedBuildId, builds, createBuild, refreshBuilds, handleStatusTransition, handleSelectBuild, addSystemMessage, navigate])
 
   if (loading) {
     return (
@@ -832,6 +947,7 @@ function AgentWorkspace() {
           {selectedBuild ? (
             <BuildDetailPanel
               onDelete={handleDeleteBuild}
+              onClose={handleCloseCycle}
               onSaveDoc={handleSaveDoc}
               onPatchTask={handlePatchTask}
               onExecuteTask={handleExecuteTask}
@@ -846,16 +962,14 @@ function AgentWorkspace() {
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center bg-surface">
-              <p className="text-lg text-text-muted mb-4">
-                {builds.length === 0 ? 'No builds yet' : 'Select a build from the sidebar'}
-              </p>
+              <img src="/mascot/happy.png" alt="Vibe Parrot" className="w-20 h-20 object-contain mb-4 opacity-80" />
               <button
                 onClick={() => setShowAddModal(true)}
                 className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-accent text-white hover:bg-accent-hover transition-colors"
               >
                 + New Cycle
               </button>
-              <p className="text-xs text-text-muted mt-3">
+              <p className="text-sm text-text-secondary mt-3">
                 or describe what you want to build in the agent panel
               </p>
               {error && (
@@ -881,6 +995,7 @@ function AgentWorkspace() {
             buildId={selectedBuildId}
             onSendMessage={handleSendChat}
             onCommand={handleCommand}
+            onGeneralChat={handleGeneralChat}
             isThinking={isAgentThinking}
             pendingQuestions={effectivePendingQuestions}
             isPlanning={isSelectedBuildPlanning}

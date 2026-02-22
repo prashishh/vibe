@@ -9,7 +9,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
 
   const handleAssist = async () => {
     if (!description.trim()) {
-      setError('Describe what you want to build first.')
+      setError('Describe what you want to build.')
       return
     }
 
@@ -35,7 +35,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
 
   const handleCreate = async () => {
     if (!description.trim()) {
-      setError('Build description is required.')
+      setError('Cycle description is required.')
       return
     }
 
@@ -59,7 +59,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
   return (
     <section className="rounded-xl border-2 border-border bg-surface-alt p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-text-primary">New Build</h3>
+        <h3 className="text-base font-bold text-text-primary">New Cycle</h3>
         <button
           onClick={onCancel}
           className="text-sm text-text-muted hover:text-text-primary"
@@ -69,7 +69,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
       </div>
 
       <label className="text-xs font-medium text-text-secondary space-y-1 block max-w-xs">
-        Build Type
+        Cycle Type
         <select
           value={buildType}
           onChange={(event) => setBuildType(event.target.value)}
@@ -84,7 +84,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
         rows={3}
         value={description}
         onChange={(event) => setDescription(event.target.value)}
-        placeholder="Describe what you want to build..."
+        placeholder="Describe what you want to build.."
         className="w-full bg-surface border-2 border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
       />
 
@@ -114,7 +114,7 @@ function BuildCreator({ onAssist, onCreate, onCreated, onCancel }) {
           disabled={busy}
           className="px-4 py-2 rounded-lg text-sm font-semibold bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
         >
-          Create Build
+          Create Cycle
         </button>
       </div>
     </section>

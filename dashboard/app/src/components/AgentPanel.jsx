@@ -41,6 +41,12 @@ const RUNNER_DISPLAY = {
   gemini: { label: 'Gemini', icon: '\u2666' },
 }
 
+const COMMON_MODELS = {
+  claude: ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
+  codex: ['o3', 'o4-mini', 'codex-mini'],
+  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+}
+
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function UserMessage({ message }) {
@@ -103,7 +109,7 @@ function ActivityItem({ item }) {
 
 function SystemMessage({ message }) {
   return (
-    <div className="py-2 text-xs text-text-muted leading-relaxed whitespace-pre-wrap">
+    <div className="py-2 text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
       {message.content}
     </div>
   )
@@ -126,7 +132,7 @@ function LiveOutput({ lines }) {
     <div className="py-2">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Live Output</span>
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Live Output</span>
       </div>
       <div
         ref={scrollRef}
@@ -160,7 +166,7 @@ function QuestionsBanner({ questions }) {
 }
 
 /** Runner/model switcher dropdown */
-function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
+function RunnerSwitcher({ currentRunner, currentModel, availableRunners, onSwitch, onModelSwitch }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -173,6 +179,8 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
   }, [open])
 
   const display = RUNNER_DISPLAY[currentRunner] || { label: currentRunner, icon: '\u25cb' }
+  const models = COMMON_MODELS[currentRunner] || []
+  const shortModel = currentModel ? currentModel.replace(/^claude-/, '').replace(/^gemini-/, '').split('-').slice(0, 2).join('-') : ''
 
   return (
     <div className="relative" ref={ref}>
@@ -182,18 +190,21 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
       >
         <span>{display.icon}</span>
         <span>{display.label}</span>
+        {shortModel && <span className="text-text-muted font-mono text-[10px]">/ {shortModel}</span>}
         <span className="text-[10px] text-text-muted">{open ? '\u25b4' : '\u25be'}</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[150px]">
+        <div className="absolute top-full right-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[200px]">
+          {/* Runner section */}
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Runner</div>
           {availableRunners.map(runner => {
             const rd = RUNNER_DISPLAY[runner] || { label: runner, icon: '\u25cb' }
             const isActive = runner === currentRunner
             return (
               <button
                 key={runner}
-                onClick={() => { onSwitch(runner); setOpen(false) }}
-                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                onClick={() => { onSwitch(runner); }}
+                className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${
                   isActive
                     ? 'text-accent bg-accent/10'
                     : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
@@ -201,10 +212,34 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
               >
                 <span>{rd.icon}</span>
                 <span>{rd.label}</span>
-                {isActive && <span className="ml-auto text-accent text-xs">\u2713</span>}
+                {isActive && <span className="ml-auto text-accent text-xs">{'\u2713'}</span>}
               </button>
             )
           })}
+          {/* Model section */}
+          {models.length > 0 && (
+            <>
+              <div className="border-t border-border/50 mt-1 pt-1" />
+              <div className="px-3 py-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Model</div>
+              {models.map(model => {
+                const isActive = model === currentModel
+                return (
+                  <button
+                    key={model}
+                    onClick={() => { onModelSwitch(model); setOpen(false) }}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-mono flex items-center gap-2 transition-colors ${
+                      isActive
+                        ? 'text-accent bg-accent/10'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
+                    }`}
+                  >
+                    <span>{model}</span>
+                    {isActive && <span className="ml-auto text-accent text-xs">{'\u2713'}</span>}
+                  </button>
+                )
+              })}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -219,6 +254,7 @@ function AgentPanel({
   buildId,
   onSendMessage,
   onCommand,
+  onGeneralChat,
   isThinking = false,
   pendingQuestions = [],
   isPlanning = false,
@@ -229,6 +265,7 @@ function AgentPanel({
   const [panelWidth, setPanelWidth] = useState(420)
   const [isResizing, setIsResizing] = useState(false)
   const [currentRunner, setCurrentRunner] = useState('claude')
+  const [currentModel, setCurrentModel] = useState('claude-sonnet-4-5-20250929')
   const [availableRunners, setAvailableRunners] = useState(['claude'])
   const threadEndRef = useRef(null)
   const textareaRef = useRef(null)
@@ -237,14 +274,21 @@ function AgentPanel({
   // Load runner config on mount
   useEffect(() => {
     fetchLLMConfig().then(config => {
+      const runner = config?.execution?.preferredRunner || 'claude'
       if (config?.execution?.preferredRunner) {
-        setCurrentRunner(config.execution.preferredRunner)
+        setCurrentRunner(runner)
       }
       if (config?.execution?.runners) {
         const enabled = Object.entries(config.execution.runners)
           .filter(([, v]) => v.enabled)
           .map(([k]) => k)
         if (enabled.length > 0) setAvailableRunners(enabled)
+      }
+      // Load model preference for the active runner (planning phase)
+      const planningPref = config?.modelPreferences?.planning
+      if (planningPref) {
+        const model = typeof planningPref === 'object' ? planningPref[runner] : planningPref
+        if (model) setCurrentModel(model)
       }
     }).catch(() => {})
   }, [])
@@ -308,14 +352,43 @@ function AgentPanel({
 
   const handleRunnerSwitch = useCallback(async (runner) => {
     setCurrentRunner(runner)
+    // Set default model for the new runner
+    const models = COMMON_MODELS[runner] || []
+    if (models.length > 0) setCurrentModel(models[0])
     try {
       const config = await fetchLLMConfig()
       config.execution.preferredRunner = runner
       await saveLLMConfig(config)
+      // Load model preference for the new runner
+      const planningPref = config?.modelPreferences?.planning
+      if (planningPref) {
+        const model = typeof planningPref === 'object' ? planningPref[runner] : null
+        if (model) setCurrentModel(model)
+      }
     } catch (err) {
       console.error('Failed to save runner preference:', err)
     }
   }, [])
+
+  const handleModelSwitch = useCallback(async (model) => {
+    setCurrentModel(model)
+    try {
+      const config = await fetchLLMConfig()
+      if (!config.modelPreferences) config.modelPreferences = {}
+      // Update all phases for current runner
+      for (const phase of ['planning', 'execution', 'feedback', 'guards']) {
+        if (!config.modelPreferences[phase]) config.modelPreferences[phase] = {}
+        if (typeof config.modelPreferences[phase] === 'string') {
+          config.modelPreferences[phase] = { [currentRunner]: model }
+        } else {
+          config.modelPreferences[phase][currentRunner] = model
+        }
+      }
+      await saveLLMConfig(config)
+    } catch (err) {
+      console.error('Failed to save model preference:', err)
+    }
+  }, [currentRunner])
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
@@ -336,12 +409,16 @@ function AgentPanel({
       return
     }
 
-    // No build selected — auto-create a new cycle
+    // No build selected — general chat (answers questions or creates build)
     if (!buildId) {
       setInput('')
       setSending(true)
       try {
-        await onCommand({ command: 'new', description: trimmed, buildType: 'vibe' })
+        if (onGeneralChat) {
+          await onGeneralChat(trimmed)
+        } else {
+          await onCommand({ command: 'new', description: trimmed, buildType: 'vibe' })
+        }
       } finally {
         setSending(false)
       }
@@ -357,7 +434,7 @@ function AgentPanel({
     } finally {
       setSending(false)
     }
-  }, [input, sending, buildId, onSendMessage, onCommand])
+  }, [input, sending, buildId, onSendMessage, onCommand, onGeneralChat])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -370,11 +447,11 @@ function AgentPanel({
 
   let placeholder
   if (allQuestions.length > 0) {
-    placeholder = "Answer the agent's questions..."
+    placeholder = "Answer the agent's questions.."
   } else if (buildId) {
-    placeholder = 'Message the agent...'
+    placeholder = 'Message the agent..'
   } else {
-    placeholder = 'Describe what you want to build...'
+    placeholder = 'Describe what you want to build..'
   }
 
   const showStatus = isPlanning || runningCount > 0
@@ -395,6 +472,7 @@ function AgentPanel({
 
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/50 flex-shrink-0">
+        <img src="/mascot/code.png" alt="" className="w-4 h-4 object-contain" />
         <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Agent</span>
         {buildId && (
           <span className="text-xs text-accent font-mono font-medium truncate max-w-[100px]">{buildId}</span>
@@ -410,8 +488,10 @@ function AgentPanel({
         <div className="ml-auto">
           <RunnerSwitcher
             currentRunner={currentRunner}
+            currentModel={currentModel}
             availableRunners={availableRunners}
             onSwitch={handleRunnerSwitch}
+            onModelSwitch={handleModelSwitch}
           />
         </div>
       </div>
@@ -420,8 +500,9 @@ function AgentPanel({
       <div ref={threadContainerRef} onScroll={handleThreadScroll} className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
         {messages.length === 0 && !buildId && !isThinking && liveLines.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <p className="text-sm text-text-secondary mb-1">What do you want to build?</p>
-            <p className="text-xs text-text-muted">
+            <img src="/mascot/suggest.png" alt="Vibe Parrot" className="w-16 h-16 object-contain mb-3 opacity-80" />
+            <p className="text-sm text-text-primary mb-1">What do you want to build?</p>
+            <p className="text-xs text-text-secondary">
               Describe your idea, and the agent will plan and build it.
             </p>
           </div>
@@ -474,10 +555,10 @@ function AgentPanel({
             placeholder={placeholder}
             disabled={sending}
             rows={1}
-            className={`flex-1 resize-none bg-surface-alt rounded-lg border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted/40 focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+            className={`flex-1 resize-none bg-surface-alt rounded-lg border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
               allQuestions.length > 0
                 ? 'border-warning/40 focus:border-warning focus:ring-warning/30'
-                : 'border-border focus:border-accent focus:ring-accent/30'
+                : 'border-border-light focus:border-accent focus:ring-accent/30'
             }`}
             style={{ minHeight: '40px', maxHeight: '120px' }}
             onInput={(e) => {

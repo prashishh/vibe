@@ -18,52 +18,82 @@ const { parseFileBlocks, parseCommandTemplate } = require('./planner');
  * along with the user's feedback message, asking the runner to output
  * only the modified files using the --- FILE: X.md --- separator format.
  */
-function buildFeedbackPrompt({ buildId, message, docs }) {
+function buildFeedbackPrompt({ buildId, buildType, buildStatus, message, docs }) {
   const docEntries = Object.entries(docs).filter(([, content]) => content);
 
   const docsContext = docEntries.map(([name, content]) => {
     return `--- CURRENT FILE: ${name} ---\n${content}`;
   }).join('\n\n');
 
+  // Inform the runner about doc restrictions per build type
+  const docRestrictions = buildType === 'vibe'
+    ? 'This is a Vibe (quick fix) build. Only GOAL.md and TASKS.md are allowed.'
+    : buildType === 'lite'
+      ? 'This is a Lite build. Documents allowed: GOAL.md, TASKS.md, RECAP.md.'
+      : 'This is a Full build. All documents are allowed: GOAL.md, PLAN.md, DESIGN.md, TASKS.md, REVIEW.md, SHIP.md, RECAP.md, DECISIONS.md, TEST_PLAN.md.';
+
   return [
     'FEEDBACK REQUEST FOR BUILD DOCUMENTS',
     '',
     'CONTEXT:',
     `Build ID: ${buildId}`,
+    `Build type: ${buildType || 'vibe'}`,
+    `Build status: ${buildStatus || 'planning'}`,
+    docRestrictions,
     '',
-    'The user wants to modify the build documents based on the following feedback.',
-    'Below are the current build documents:',
+    'The user wants to modify the build documents based on their message below.',
+    'Current build documents:',
     '',
     docsContext,
     '',
     '--- END OF CURRENT DOCUMENTS ---',
     '',
-    'USER FEEDBACK:',
+    'USER MESSAGE:',
     message,
     '',
     'INSTRUCTIONS:',
-    '1. Carefully read the user\'s feedback above.',
-    '2. Modify the relevant build documents to address the feedback.',
-    '3. You may add new tasks, remove tasks, update goals, change plans, or modify any document.',
-    '4. Output ONLY the files that need to change using the exact separator format below.',
-    '5. Do NOT output files that have no changes.',
-    '6. Preserve the overall structure and format of each document.',
-    '7. For TASKS.md: every task Status MUST be a valid status (pending, planning, in_progress, review, deployed, blocked).',
+    'Your response has TWO parts:',
     '',
-    'OUTPUT FORMAT (use EXACTLY these separators for each modified file):',
+    'PART 1 — SUMMARY (required):',
+    'Start with 1-3 sentences explaining what you changed and why, in a helpful conversational tone.',
+    'If no changes are needed, explain why. This text goes BEFORE any file separators.',
+    '',
+    'PART 2 — FILE BLOCKS (only if files need changes):',
+    'After your summary, output the modified files using the separator format below.',
     '',
     '--- FILE: FILENAME.md ---',
     '(full updated content of the file)',
     '',
-    'CRITICAL RULES:',
-    '- You MUST output files using the --- FILE: X.md --- separator format above.',
-    '- NEVER output conversational text without file separators — the output is machine-parsed.',
-    '- If you need clarification, include your questions in the relevant document (e.g., GOAL.md)',
-    '  under an "## Open Questions" section, then proceed with your best-guess changes.',
-    '- Do NOT ask questions instead of producing file blocks. Always produce the file blocks.',
+    'RULES:',
+    '- Always start with the conversational summary before any --- FILE: separators.',
+    '- Only output files that actually changed.',
+    '- Preserve the structure and format of each document.',
+    '- For TASKS.md: every task Status MUST be valid (pending, planning, in_progress, review, deployed, blocked).',
+    '- If you need clarification, include questions in GOAL.md under "## Open Questions" and proceed with your best guess.',
+    `- ${docRestrictions}`,
     '',
-    'Generate the updated files now. Only output files that changed.',
+    'Respond now.',
   ].join('\n');
+}
+
+/**
+ * Extract conversational text that appears before the first --- FILE: separator.
+ */
+function extractConversationalResponse(fullOutput) {
+  const firstSep = fullOutput.search(/---\s*FILE:\s*[A-Z_]+\.md\s*---|<!--\s*FILE:\s*[A-Z_]+\.md\s*-->/i);
+  if (firstSep <= 0) {
+    // No file blocks found — the entire output might be conversational
+    const cleaned = fullOutput
+      .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '') // strip ANSI
+      .trim();
+    return cleaned.length > 0 && cleaned.length < 2000 ? cleaned : '';
+  }
+
+  const before = fullOutput.slice(0, firstSep)
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '') // strip ANSI
+    .trim();
+
+  return before || '';
 }
 
 /**
@@ -115,6 +145,8 @@ async function runFeedback({ buildId, message, eventBus }) {
   // Build the feedback prompt with all docs as context
   const feedbackPrompt = buildFeedbackPrompt({
     buildId,
+    buildType: meta.buildType || 'vibe',
+    buildStatus: meta.status || 'planning',
     message,
     docs,
   });
@@ -220,6 +252,9 @@ async function runFeedback({ buildId, message, eventBus }) {
       }
 
       try {
+        // Extract conversational response (text before first --- FILE: separator)
+        const conversationalResponse = extractConversationalResponse(fullOutput);
+
         // Parse the output into file blocks
         const fileBlocks = parseFileBlocks(fullOutput);
         const dir = buildDirPath(buildId);
@@ -245,6 +280,7 @@ async function runFeedback({ buildId, message, eventBus }) {
         resolve({
           buildId,
           updatedFiles,
+          conversationalResponse,
           activity: activityItems,
         });
       } catch (err) {
@@ -257,4 +293,5 @@ async function runFeedback({ buildId, message, eventBus }) {
 
 module.exports = {
   runFeedback,
+  extractConversationalResponse,
 };

@@ -1,4 +1,4 @@
-function BuildSidebarItem({ build, selected, onSelect, isPlanning }) {
+function BuildSidebarItem({ build, selected, onSelect, isPlanning, groupColor, isDone }) {
   const typeLabel = build.buildType === 'full' ? 'Full'
     : build.buildType === 'vibe' ? 'Vibe'
     : 'Lite'
@@ -19,16 +19,41 @@ function BuildSidebarItem({ build, selected, onSelect, isPlanning }) {
     ? `${build.doneTasks}/${build.totalTasks}`
     : null
 
+  // Subtle tinted background from group color
+  const tintBg = groupColor
+    ? selected
+      ? `${groupColor}18`   // slightly stronger when selected
+      : `${groupColor}0a`   // very subtle tint
+    : undefined
+  const hoverBg = groupColor ? `${groupColor}14` : undefined
+
   return (
     <button
       onClick={() => onSelect(build.buildId)}
-      className={`w-full text-left px-3 py-2.5 transition-colors border-l-2 ${
+      className={`group/item w-full text-left px-3 py-2.5 transition-colors border-l-2 ${
         selected
-          ? 'bg-surface-hover border-accent'
-          : 'border-transparent hover:bg-surface-hover/50'
+          ? 'border-accent'
+          : 'border-transparent'
       }`}
+      style={{
+        backgroundColor: tintBg,
+        borderLeftColor: selected ? groupColor : undefined,
+      }}
+      onMouseEnter={e => {
+        if (!selected) e.currentTarget.style.backgroundColor = hoverBg
+      }}
+      onMouseLeave={e => {
+        if (!selected) e.currentTarget.style.backgroundColor = tintBg
+      }}
     >
       <div className="flex items-center gap-2 min-w-0">
+        {isDone && (
+          <img
+            src="/mascot/parrot.png"
+            alt=""
+            className="w-5 h-5 flex-shrink-0 opacity-80"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-text-primary truncate leading-snug">
             {build.description || 'Untitled'}

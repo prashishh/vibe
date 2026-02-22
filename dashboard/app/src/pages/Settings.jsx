@@ -32,14 +32,6 @@ const RUNNER_DEFAULTS = {
   gemini: { planning: 'gemini-2.5-pro', execution: 'gemini-2.5-flash', feedback: 'gemini-2.5-pro', guards: 'gemini-2.5-flash' },
 }
 
-const PROFILES = [
-  { key: 'planning', label: 'Planning', desc: 'Used to plan build tasks' },
-  { key: 'execution', label: 'Execution', desc: 'Used during task execution' },
-  { key: 'testing', label: 'Testing', desc: 'Used for test generation' },
-  { key: 'guards', label: 'Guards', desc: 'Used for guard checks' },
-  { key: 'review', label: 'Review', desc: 'Used for code review' },
-]
-
 function Settings() {
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -81,16 +73,6 @@ function Settings() {
             [key]: value,
           },
         },
-      },
-    }))
-  }
-
-  const updateProfile = (profile, key, value) => {
-    setConfig(prev => ({
-      ...prev,
-      llms: {
-        ...prev.llms,
-        [profile]: { ...prev.llms[profile], [key]: value },
       },
     }))
   }
@@ -151,8 +133,8 @@ function Settings() {
       {/* Page header */}
       <div>
         <h2 className="text-xl font-bold text-text-primary">Settings</h2>
-        <p className="text-sm text-text-muted mt-1">
-          Configure CLI runners and LLM profiles. Stored in <code className="text-xs bg-surface-alt px-1.5 py-0.5 rounded text-accent">.vibe/llm-config.json</code>
+        <p className="text-sm text-text-secondary mt-1">
+          Runners and model preferences. Saved to <code className="text-xs bg-surface-alt px-1.5 py-0.5 rounded text-accent">.vibe/llm-config.json</code>
         </p>
       </div>
 
@@ -171,8 +153,8 @@ function Settings() {
       <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
         <div>
           <h3 className="text-base font-bold text-text-primary">CLI Runners</h3>
-          <p className="text-xs text-text-muted mt-1">
-            Runners are CLI tools that execute tasks. Enable the ones installed on your machine.
+          <p className="text-xs text-text-secondary mt-1">
+            Turn on the CLI tools you have installed.
           </p>
         </div>
 
@@ -218,10 +200,9 @@ function Settings() {
         </div>
 
         <p className="text-[10px] text-text-muted -mt-2 leading-snug">
-          <strong>Permission Mode</strong> controls how CLI runners handle file operations during task execution.
-          {' '}<em>Bypass All</em> auto-approves (Claude: --dangerously-skip-permissions, Codex: --full-auto).
-          {' '}<em>Auto-Accept Edits</em> allows file changes but may prompt for other tools.
-          {' '}<em>Default</em> uses each CLI&apos;s built-in permission flow. Not all runners support all modes.
+          <em>Bypass All</em> skips all prompts (Claude: --dangerously-skip-permissions, Codex: --full-auto).
+          {' '}<em>Auto-Accept Edits</em> lets file changes through but may still prompt for other things.
+          {' '}<em>Default</em> uses the CLI&apos;s own permission flow.
         </p>
 
         {/* Runner cards */}
@@ -305,8 +286,8 @@ function Settings() {
       <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
         <div>
           <h3 className="text-base font-bold text-text-primary">Model Preferences</h3>
-          <p className="text-xs text-text-muted mt-1">
-            Choose which model each runner uses for each phase. The appropriate flag (<code className="text-xs bg-surface-alt px-1 py-0.5 rounded text-accent">--model</code> or <code className="text-xs bg-surface-alt px-1 py-0.5 rounded text-accent">-m</code>) is injected automatically.
+          <p className="text-xs text-text-secondary mt-1">
+            Pick which model each runner uses per phase. The right <code className="text-xs bg-surface-alt px-1 py-0.5 rounded text-accent">--model</code> flag gets added automatically.
           </p>
         </div>
 
@@ -348,108 +329,9 @@ function Settings() {
         </div>
       </section>
 
-      {/* ─── LLM PROFILES ─── */}
-      <section className="rounded-xl border-2 border-border bg-surface p-6 space-y-5">
-        <div>
-          <h3 className="text-base font-bold text-text-primary">LLM Profiles</h3>
-          <p className="text-xs text-text-muted mt-1">
-            API-based LLM configuration for each workflow stage. Only needed if using API mode — not required for CLI runners.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {PROFILES.map(({ key, label, desc }) => {
-            const entry = config.llms?.[key] || {}
-            return (
-              <details key={key} className="group rounded-lg border-2 border-border bg-surface-alt overflow-hidden">
-                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface-hover transition-colors">
-                  <div>
-                    <span className="text-sm font-semibold text-text-primary">{label}</span>
-                    <span className="text-xs text-text-muted ml-2">{desc}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-text-muted" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {entry.provider || 'anthropic'} / {entry.model || '—'}
-                    </span>
-                    <svg className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </summary>
-
-                <div className="px-4 pb-4 pt-2 border-t border-border space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-xs text-text-muted space-y-1">
-                      <span className="font-medium">Provider</span>
-                      <select
-                        value={entry.provider || 'anthropic'}
-                        onChange={(e) => updateProfile(key, 'provider', e.target.value)}
-                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-                      >
-                        <option value="anthropic">Anthropic</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="openrouter">OpenRouter</option>
-                        <option value="gemini">Gemini</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </label>
-
-                    <label className="block text-xs text-text-muted space-y-1">
-                      <span className="font-medium">Model</span>
-                      <input
-                        value={entry.model || ''}
-                        onChange={(e) => updateProfile(key, 'model', e.target.value)}
-                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                      />
-                    </label>
-                  </div>
-
-                  <label className="block text-xs text-text-muted space-y-1">
-                    <span className="font-medium">API Key</span>
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      value={entry.apiKey || ''}
-                      onChange={(e) => updateProfile(key, 'apiKey', e.target.value)}
-                      placeholder="${ANTHROPIC_API_KEY}"
-                      className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-                      style={{ fontFamily: "var(--font-mono)" }}
-                    />
-                    {entry.apiKeyPreview && (
-                      <span className="text-[11px] text-text-muted">Resolved: {entry.apiKeyPreview}</span>
-                    )}
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-xs text-text-muted space-y-1">
-                      <span className="font-medium">Temperature</span>
-                      <input
-                        type="number" min="0" max="1" step="0.1"
-                        value={entry.temperature ?? 0.3}
-                        onChange={(e) => updateProfile(key, 'temperature', Number(e.target.value))}
-                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-                      />
-                    </label>
-                    <label className="block text-xs text-text-muted space-y-1">
-                      <span className="font-medium">Max Tokens</span>
-                      <input
-                        type="number" min="1"
-                        value={entry.maxTokens ?? 1024}
-                        onChange={(e) => updateProfile(key, 'maxTokens', Number(e.target.value))}
-                        className="w-full bg-surface border-2 border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </details>
-            )
-          })}
-        </div>
-      </section>
-
       {/* Save button */}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <img src="/mascot/sleep.png" alt="" className="w-10 h-10 object-contain opacity-50" />
         <button
           onClick={handleSave}
           disabled={saving}
