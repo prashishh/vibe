@@ -17,19 +17,19 @@ function SidebarGroup({ label, color, items, children, defaultOpen = true }) {
     <div className="border-b border-border/50">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-surface-hover/30 transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-surface-hover/30 transition-colors"
       >
         <span
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+          className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: color }}
         />
-        <span className="text-xs font-semibold text-text-secondary flex-1">
+        <span className="text-sm font-semibold text-text-secondary flex-1">
           {label}
         </span>
-        <span className="text-[10px] text-text-muted tabular-nums">
+        <span className="text-xs text-text-muted tabular-nums">
           {items.length}
         </span>
-        <span className="text-[9px] text-text-muted">
+        <span className="text-[10px] text-text-muted">
           {open ? '\u25BE' : '\u25B8'}
         </span>
       </button>
@@ -71,7 +71,7 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
         <h2 className="text-sm font-semibold text-text-primary">Builds</h2>
         <button
           onClick={onNewCycle}
-          className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
         >
           + New
         </button>
@@ -81,8 +81,8 @@ function BuildSidebar({ builds, selectedBuildId, onSelectBuild, planningBuilds, 
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && (
           <div className="px-4 py-8 text-center">
-            <p className="text-xs text-text-muted">No builds yet.</p>
-            <p className="text-xs text-text-muted mt-1">Click <strong className="text-text-secondary">+ New</strong> to get started.</p>
+            <p className="text-sm text-text-muted">No builds yet.</p>
+            <p className="text-sm text-text-muted mt-1">Click <strong className="text-text-secondary">+ New</strong> to get started.</p>
           </div>
         )}
         {groups.map(group => (

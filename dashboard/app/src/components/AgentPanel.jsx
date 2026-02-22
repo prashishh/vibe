@@ -48,7 +48,7 @@ function UserMessage({ message }) {
     <div className="py-3 pl-4 border-l-2 border-accent/40">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-semibold text-text-secondary">You</span>
-        <span className="text-[10px] text-text-muted">{formatTime(message.timestamp)}</span>
+        <span className="text-xs text-text-muted">{formatTime(message.timestamp)}</span>
       </div>
       <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">{message.content}</p>
     </div>
@@ -64,7 +64,7 @@ function AssistantMessage({ message }) {
     <div className="py-3">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="text-xs font-semibold text-accent">Agent</span>
-        <span className="text-[10px] text-text-muted">{formatTime(message.timestamp)}</span>
+        <span className="text-xs text-text-muted">{formatTime(message.timestamp)}</span>
       </div>
       <div className="text-sm">
         <MarkdownView content={message.content} compact />
@@ -73,9 +73,9 @@ function AssistantMessage({ message }) {
         <div className="mt-2">
           <button
             onClick={() => setActivityOpen(!activityOpen)}
-            className="text-[11px] text-text-muted hover:text-text-secondary flex items-center gap-1 transition-colors"
+            className="text-xs text-text-muted hover:text-text-secondary flex items-center gap-1 transition-colors"
           >
-            <span className="text-[9px]">{activityOpen ? '\u25be' : '\u25b8'}</span>
+            <span className="text-[10px]">{activityOpen ? '\u25be' : '\u25b8'}</span>
             <span>{activity.length} step{activity.length !== 1 ? 's' : ''}</span>
           </button>
           {activityOpen && (
@@ -94,7 +94,7 @@ function AssistantMessage({ message }) {
 function ActivityItem({ item }) {
   const icon = ACTIVITY_ICONS[item.type] || '\u00b7'
   return (
-    <div className="flex items-start gap-1.5 text-[10px] text-text-muted leading-relaxed">
+    <div className="flex items-start gap-1.5 text-xs text-text-muted leading-relaxed">
       <span className="flex-shrink-0 w-3 text-center">{icon}</span>
       <span className="font-mono break-all">{item.detail}</span>
     </div>
@@ -103,7 +103,7 @@ function ActivityItem({ item }) {
 
 function SystemMessage({ message }) {
   return (
-    <div className="py-2 text-[11px] text-text-muted leading-relaxed whitespace-pre-wrap">
+    <div className="py-2 text-xs text-text-muted leading-relaxed whitespace-pre-wrap">
       {message.content}
     </div>
   )
@@ -126,11 +126,11 @@ function LiveOutput({ lines }) {
     <div className="py-2">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
-        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Live Output</span>
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Live Output</span>
       </div>
       <div
         ref={scrollRef}
-        className="rounded-md bg-surface-alt/50 border border-border/30 p-2 max-h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed"
+        className="rounded-md bg-surface-alt/50 border border-border/30 p-2.5 max-h-[400px] overflow-y-auto font-mono text-xs leading-relaxed"
       >
         {lines.map((line, i) => (
           <div key={i} className={`${STREAM_COLORS[line.stream] || 'text-text-muted'} whitespace-pre-wrap break-words`}>
@@ -146,10 +146,10 @@ function QuestionsBanner({ questions }) {
   if (!questions || questions.length === 0) return null
   return (
     <div className="mx-4 mb-2 p-3 rounded-lg bg-warning/5 border border-warning/20">
-      <p className="text-[11px] font-semibold text-warning mb-1.5">Agent needs your input:</p>
+      <p className="text-xs font-semibold text-warning mb-1.5">Agent needs your input:</p>
       <div className="space-y-1">
         {questions.map((q, i) => (
-          <div key={i} className="text-xs text-text-secondary leading-relaxed flex gap-2">
+          <div key={i} className="text-sm text-text-secondary leading-relaxed flex gap-2">
             <span className="text-warning flex-shrink-0">?</span>
             <span>{q}</span>
           </div>
@@ -178,14 +178,14 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium bg-surface-alt border border-border/50 hover:border-accent/40 transition-colors"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-surface-alt border border-border/50 hover:border-accent/40 transition-colors"
       >
         <span>{display.icon}</span>
         <span>{display.label}</span>
-        <span className="text-[8px] text-text-muted">{open ? '\u25b4' : '\u25be'}</span>
+        <span className="text-[10px] text-text-muted">{open ? '\u25b4' : '\u25be'}</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[150px]">
           {availableRunners.map(runner => {
             const rd = RUNNER_DISPLAY[runner] || { label: runner, icon: '\u25cb' }
             const isActive = runner === currentRunner
@@ -193,7 +193,7 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
               <button
                 key={runner}
                 onClick={() => { onSwitch(runner); setOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-[11px] flex items-center gap-2 transition-colors ${
+                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
                   isActive
                     ? 'text-accent bg-accent/10'
                     : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
@@ -201,7 +201,7 @@ function RunnerSwitcher({ currentRunner, availableRunners, onSwitch }) {
               >
                 <span>{rd.icon}</span>
                 <span>{rd.label}</span>
-                {isActive && <span className="ml-auto text-accent text-[9px]">\u2713</span>}
+                {isActive && <span className="ml-auto text-accent text-xs">\u2713</span>}
               </button>
             )
           })}
@@ -394,15 +394,15 @@ function AgentPanel({
       />
 
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 flex-shrink-0">
-        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Agent</span>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/50 flex-shrink-0">
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Agent</span>
         {buildId && (
-          <span className="text-[10px] text-accent font-mono font-medium truncate max-w-[100px]">{buildId}</span>
+          <span className="text-xs text-accent font-mono font-medium truncate max-w-[100px]">{buildId}</span>
         )}
         {showStatus && (
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
-            <span className="text-[10px] text-info">
+            <span className="text-xs text-info">
               {isPlanning ? 'planning...' : `${runningCount} running`}
             </span>
           </span>
@@ -421,7 +421,7 @@ function AgentPanel({
         {messages.length === 0 && !buildId && !isThinking && liveLines.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <p className="text-sm text-text-secondary mb-1">What do you want to build?</p>
-            <p className="text-[11px] text-text-muted">
+            <p className="text-xs text-text-muted">
               Describe your idea, and the agent will plan and build it.
             </p>
           </div>
@@ -450,7 +450,13 @@ function AgentPanel({
         </div>
 
         {/* Live CLI output — streamed in real time, no filtering */}
-        {isThinking && <LiveOutput lines={liveLines} />}
+        {liveLines.length > 0 && <LiveOutput lines={liveLines} />}
+        {isThinking && liveLines.length === 0 && (
+          <div className="py-3 flex items-center gap-2 text-xs text-text-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
+            <span>Agent is working...</span>
+          </div>
+        )}
         <div ref={threadEndRef} />
       </div>
 

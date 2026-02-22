@@ -143,25 +143,25 @@ function EditableDoc({ title, content, onSave, buildId, defaultExpanded = false 
           onClick={() => { if (!editing) setExpanded(!expanded) }}
           className="flex items-center gap-1.5 text-left hover:opacity-80 transition-opacity"
         >
-          <span className="text-[10px] text-text-muted">{editing || expanded ? '\u25BE' : '\u25B8'}</span>
-          <span className="text-xs font-semibold text-text-secondary">{title}</span>
+          <span className="text-xs text-text-muted">{editing || expanded ? '\u25BE' : '\u25B8'}</span>
+          <span className="text-sm font-semibold text-text-secondary">{title}</span>
         </button>
         {!editing ? (
           <button
             onClick={() => { setEditing(true); setExpanded(true) }}
-            className="text-[10px] text-accent hover:text-accent-hover font-medium transition-colors"
+            className="text-xs text-accent hover:text-accent-hover font-medium transition-colors"
           >
             Edit
           </button>
         ) : (
-          <span className="text-[10px] text-text-muted italic">Editing</span>
+          <span className="text-xs text-text-muted italic">Editing</span>
         )}
       </div>
 
       {editing && (
         <div className="px-3 pb-3 space-y-2">
           {buildId && (
-            <p className="text-[10px] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>
+            <p className="text-xs text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>
               .vibe/builds/{buildId}/{title}
             </p>
           )}
@@ -170,27 +170,27 @@ function EditableDoc({ title, content, onSave, buildId, defaultExpanded = false 
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full min-h-48 max-h-[60vh] p-2.5 rounded-lg border border-border bg-surface-alt text-[11px] text-text-primary leading-relaxed resize-y focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            className="w-full min-h-48 max-h-[60vh] p-2.5 rounded-lg border border-border bg-surface-alt text-sm text-text-primary leading-relaxed resize-y focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             style={{ fontFamily: 'var(--font-mono)' }}
             spellCheck={false}
           />
           {saveError && (
-            <p className="text-[11px] text-danger font-medium">{saveError}</p>
+            <p className="text-xs text-danger font-medium">{saveError}</p>
           )}
           <div className="flex items-center gap-2 justify-end">
-            <span className="text-[10px] text-text-muted mr-auto">
+            <span className="text-xs text-text-muted mr-auto">
               {navigator.platform?.includes('Mac') ? '\u2318S' : 'Ctrl+S'} to save &middot; Esc to cancel
             </span>
             <button
               onClick={handleCancel}
-              className="px-2.5 py-1 rounded text-[11px] font-medium border border-border text-text-muted hover:text-text-primary transition-colors"
+              className="px-2.5 py-1 rounded text-xs font-medium border border-border text-text-muted hover:text-text-primary transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || draft === content}
-              className="px-2.5 py-1 rounded text-[11px] font-semibold bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2.5 py-1 rounded text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>
@@ -251,10 +251,10 @@ function ProgressBanner({ theme = 'warning', title, subtitle }) {
           <span className={`absolute inset-0 rounded-full border-2 ${t.borderInner} animate-spin`} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-semibold ${t.text}`}>{title}</p>
-          <p className="text-[11px] text-text-muted">{subtitle}</p>
+          <p className={`text-sm font-semibold ${t.text}`}>{title}</p>
+          <p className="text-xs text-text-muted">{subtitle}</p>
         </div>
-        <div className="text-[11px] text-text-muted flex-shrink-0">
+        <div className="text-xs text-text-muted flex-shrink-0">
           <ElapsedTimer />
         </div>
       </div>
@@ -338,11 +338,11 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
       <div className="flex items-start gap-2">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-[11px] text-text-muted mt-0.5 flex-shrink-0 flex items-center gap-1 hover:text-text-secondary transition-colors"
+          className="text-xs text-text-muted mt-0.5 flex-shrink-0 flex items-center gap-1 hover:text-text-secondary transition-colors"
           style={{ fontFamily: 'var(--font-mono)' }}
           title={expanded ? 'Collapse' : 'Expand'}
         >
-          <span className="text-[9px]">{expanded ? '\u25BE' : '\u25B8'}</span>
+          <span className="text-xs">{expanded ? '\u25BE' : '\u25B8'}</span>
           {task.id}
         </button>
 
@@ -354,12 +354,12 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
               onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={handleTitleSave}
               onKeyDown={handleTitleKeyDown}
-              className="w-full text-xs text-text-primary bg-surface-alt border border-accent/40 rounded px-1.5 py-0.5 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              className="w-full text-sm text-text-primary bg-surface-alt border border-accent/40 rounded px-1.5 py-0.5 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             />
           ) : (
             <span
               onClick={() => setExpanded(!expanded)}
-              className="text-xs text-text-primary leading-snug cursor-pointer hover:text-accent transition-colors"
+              className="text-sm text-text-primary leading-snug cursor-pointer hover:text-accent transition-colors"
               title={hasDetails ? 'Click to see details' : undefined}
             >
               {task.title}
@@ -374,7 +374,7 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
               onChange={(e) => handleStatusChange(e.target.value)}
               onBlur={() => setShowStatusSelect(false)}
               autoFocus
-              className="text-[10px] rounded border border-border bg-surface px-1 py-0.5 focus:outline-none focus:border-accent"
+              className="text-xs rounded border border-border bg-surface px-1 py-0.5 focus:outline-none focus:border-accent"
             >
               {STATUS_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -393,7 +393,7 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
       </div>
 
       {task.status === 'blocked' && task.blockedReason && (
-        <p className="text-[10px] text-danger ml-6 leading-snug">
+        <p className="text-xs text-danger ml-6 leading-snug">
           {task.blockedReason}
         </p>
       )}
@@ -402,22 +402,22 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
         <div className="ml-6 space-y-2 pt-1 border-t border-border/50 mt-1.5">
           {task.outcome && (
             <div className="pt-1.5">
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Outcome</span>
-              <p className="text-[11px] text-text-secondary leading-relaxed mt-0.5">{task.outcome}</p>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Outcome</span>
+              <p className="text-sm text-text-secondary leading-relaxed mt-0.5">{task.outcome}</p>
             </div>
           )}
           {task.risk && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Risk</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Risk</span>
               <RiskBadge risk={task.risk} />
             </div>
           )}
           {task.acceptance?.length > 0 && (
             <div>
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Acceptance</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Acceptance</span>
               <ul className="mt-0.5 space-y-0.5">
                 {task.acceptance.map((item, i) => (
-                  <li key={i} className="text-[11px] text-text-secondary flex items-start gap-1.5">
+                  <li key={i} className="text-xs text-text-secondary flex items-start gap-1.5">
                     <span className="text-text-muted mt-px">{'\u2610'}</span>
                     <span>{item}</span>
                   </li>
@@ -427,10 +427,10 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
           )}
           {task.files?.length > 0 && (
             <div>
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Files</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Files</span>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {task.files.map((f, i) => (
-                  <code key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-alt text-accent" style={{ fontFamily: 'var(--font-mono)' }}>
+                  <code key={i} className="text-xs px-1.5 py-0.5 rounded bg-surface-alt text-accent" style={{ fontFamily: 'var(--font-mono)' }}>
                     {f}
                   </code>
                 ))}
@@ -439,10 +439,10 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
           )}
           {task.guardrails?.length > 0 && (
             <div>
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Guardrails</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Guardrails</span>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {task.guardrails.map((g, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">{g}</span>
+                  <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">{g}</span>
                 ))}
               </div>
             </div>
@@ -450,7 +450,7 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
           {onPatch && (
             <button
               onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setExpanded(false) }}
-              className="text-[10px] px-2 py-0.5 rounded font-medium text-accent hover:bg-accent/10 transition-colors mt-1"
+              className="text-xs px-2 py-0.5 rounded font-medium text-accent hover:bg-accent/10 transition-colors mt-1"
             >
               Edit Title
             </button>
@@ -464,7 +464,7 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
             <button
               onClick={handleExecute}
               disabled={executing}
-              className="text-[10px] px-2 py-0.5 rounded font-medium bg-info/10 text-info hover:bg-info/20 transition-colors disabled:opacity-50"
+              className="text-xs px-2 py-0.5 rounded font-medium bg-info/10 text-info hover:bg-info/20 transition-colors disabled:opacity-50"
             >
               {executing ? 'Starting...' : '\u25B6 Run'}
             </button>
@@ -472,13 +472,13 @@ function EditableTaskRow({ task, onPatch, onExecute, onCancel }) {
           {isRunning && onCancel && (
             <button
               onClick={() => onCancel(task.id)}
-              className="text-[10px] px-2 py-0.5 rounded font-medium bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+              className="text-xs px-2 py-0.5 rounded font-medium bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
             >
               {'\u25A0'} Cancel
             </button>
           )}
           {isRunning && (
-            <span className="text-[10px] text-info animate-pulse">Running...</span>
+            <span className="text-xs text-info animate-pulse">Running...</span>
           )}
         </div>
       )}
@@ -641,13 +641,9 @@ function BuildDetailPanel({
   const runningCount = (tasks || []).filter(t => t.status === 'in_progress').length
   const blockedCount = (tasks || []).filter(t => t.status === 'blocked').length
   const runnerQuestions = collectQuestions(pendingQuestions)
-  const hasOpenQuestions = Boolean(
-    buildInfo?.needsInput ||
-    buildInfo?.hasOpenQuestions ||
-    (buildInfo?.openQuestionsCount || 0) > 0 ||
-    (buildInfo?.needsInputQuestions || []).length > 0 ||
-    runnerQuestions.length > 0
-  )
+  // Derive open-questions state purely from the parent-provided pendingQuestions prop
+  // (which is already filtered/dismissed upstream in AgentWorkspace)
+  const hasOpenQuestions = runnerQuestions.length > 0
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-surface">
       {/* ── Section A: Fixed Header ────────────────────────────── */}
@@ -656,12 +652,12 @@ function BuildDetailPanel({
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>{buildInfo.buildId}</p>
+              <p className="text-xs text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>{buildInfo.buildId}</p>
               <h2 className="text-lg font-semibold text-text-primary mt-0.5">{buildInfo.description || 'Untitled'}</h2>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <StatusBadge status={buildInfo.status} size="sm" />
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${typeClass}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${typeClass}`}>
                 {typeLabel}
               </span>
             </div>
@@ -670,22 +666,22 @@ function BuildDetailPanel({
           {/* Stats row */}
           <div className="flex items-center gap-3 mt-2">
             {buildInfo.totalTasks > 0 && (
-              <span className="text-[11px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 {buildInfo.doneTasks}/{buildInfo.totalTasks} done
               </span>
             )}
             {runningCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info/10 text-info font-medium">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-info/10 text-info font-medium">
                 {runningCount} running
               </span>
             )}
             {blockedCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-danger/10 text-danger font-medium">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-danger/10 text-danger font-medium">
                 {blockedCount} blocked
               </span>
             )}
             {hasOpenQuestions && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning font-semibold">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning font-semibold">
                 Open Questions
               </span>
             )}
@@ -697,7 +693,7 @@ function BuildDetailPanel({
           <div className="px-6 py-3 border-b border-border">
             <button
               onClick={() => onAction(buildInfo.buildId, 'planning', buildInfo.status)}
-              className="px-6 py-2 rounded-lg text-xs font-semibold bg-[#7c3aed] text-white hover:bg-[#7c3aed]/90 transition-colors"
+              className="px-6 py-2 rounded-lg text-sm font-semibold bg-[#7c3aed] text-white hover:bg-[#7c3aed]/90 transition-colors"
             >
               Start Planning
             </button>
@@ -708,14 +704,14 @@ function BuildDetailPanel({
             {hasOpenQuestions ? (
               <button
                 disabled
-                className="px-6 py-2 rounded-lg text-xs font-semibold border border-warning/40 text-warning bg-warning/5 cursor-not-allowed"
+                className="px-6 py-2 rounded-lg text-sm font-semibold border border-warning/40 text-warning bg-warning/5 cursor-not-allowed"
               >
                 Answer Open Questions First
               </button>
             ) : (
               <button
                 onClick={() => onAction(buildInfo.buildId, 'in_progress', buildInfo.status)}
-                className="px-6 py-2 rounded-lg text-xs font-semibold bg-info text-white hover:bg-info/90 transition-colors"
+                className="px-6 py-2 rounded-lg text-sm font-semibold bg-info text-white hover:bg-info/90 transition-colors"
               >
                 Start Building
               </button>
@@ -731,19 +727,18 @@ function BuildDetailPanel({
               {hasUnfinished && (
                 <button
                   onClick={() => onAction(buildInfo.buildId, 'in_progress', buildInfo.status)}
-                  className="px-6 py-2 rounded-lg text-xs font-semibold bg-info text-white hover:bg-info/90 transition-colors"
+                  className="px-6 py-2 rounded-lg text-sm font-semibold bg-info text-white hover:bg-info/90 transition-colors"
                 >
                   Run Tasks ({pendingCount} pending{blockedCountLocal > 0 ? `, ${blockedCountLocal} blocked` : ''})
                 </button>
               )}
               <button
                 onClick={() => onAction(buildInfo.buildId, 'review', buildInfo.status)}
-                className={`px-6 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   hasUnfinished
                     ? 'border border-warning/40 text-warning hover:bg-warning hover:text-white'
                     : 'bg-warning text-white hover:bg-warning/90'
-                }`}
-              >
+                }`}>
                 Start Review
               </button>
             </div>
@@ -753,14 +748,14 @@ function BuildDetailPanel({
           <div className="px-6 py-3 border-b border-border flex items-center gap-3">
             <button
               onClick={() => onAction(buildInfo.buildId, 'deployed', buildInfo.status)}
-              className="px-6 py-2 rounded-lg text-xs font-semibold bg-success text-white hover:bg-success/90 transition-colors"
+              className="px-6 py-2 rounded-lg text-sm font-semibold bg-success text-white hover:bg-success/90 transition-colors"
             >
               Ship It!
             </button>
             {buildInfo.gitEnabled && !buildInfo.prUrl && (
               <button
                 onClick={() => setShowPRModal(true)}
-                className="px-6 py-2 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+                className="px-6 py-2 rounded-lg text-sm font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
               >
                 Create PR
               </button>
@@ -770,7 +765,7 @@ function BuildDetailPanel({
                 href={buildInfo.prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-2 rounded-lg text-xs font-semibold text-center border border-success/40 text-success hover:bg-success/10 transition-colors"
+                className="px-6 py-2 rounded-lg text-sm font-semibold text-center border border-success/40 text-success hover:bg-success/10 transition-colors"
               >
                 View PR #{buildInfo.prNumber}
               </a>
@@ -817,7 +812,7 @@ function BuildDetailPanel({
                     </div>
                   ))}
                   {runnerQuestions.length > 3 && (
-                    <p className="text-[10px] text-text-muted">+{runnerQuestions.length - 3} more in chat below</p>
+                    <p className="text-xs text-text-muted">+{runnerQuestions.length - 3} more in chat below</p>
                   )}
                 </div>
               </div>
@@ -831,7 +826,7 @@ function BuildDetailPanel({
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-shrink-0 px-4 py-2.5 text-xs font-semibold transition-colors relative whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'text-accent'
                   : 'text-text-muted hover:text-text-secondary'
@@ -890,7 +885,7 @@ function BuildDetailPanel({
                     {buildInfo.gitEnabled && !buildInfo.prUrl && (
                       <button
                         onClick={() => setShowPRModal(true)}
-                        className="py-1.5 px-4 rounded-lg text-[11px] font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+                        className="py-1.5 px-4 rounded-lg text-xs font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
                       >
                         Create PR
                       </button>
@@ -900,7 +895,7 @@ function BuildDetailPanel({
                         href={buildInfo.prUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block py-1.5 px-4 rounded-lg text-[11px] font-semibold text-center border border-success/40 text-success hover:bg-success/10 transition-colors"
+                        className="inline-block py-1.5 px-4 rounded-lg text-xs font-semibold text-center border border-success/40 text-success hover:bg-success/10 transition-colors"
                       >
                         View PR #{buildInfo.prNumber}
                       </a>
@@ -920,7 +915,7 @@ function BuildDetailPanel({
               <div className="p-6 space-y-3">
                 <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                   Tasks
-                  <span className="ml-1.5 text-[10px] font-normal">({tasks.length})</span>
+                  <span className="ml-1.5 text-xs font-normal">({tasks.length})</span>
                 </h4>
                 <div className="space-y-1.5">
                   {tasks.map(task => (
@@ -955,21 +950,21 @@ function BuildDetailPanel({
               <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Build Info</h4>
               <div className="rounded-lg border border-border bg-surface-alt p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-text-muted">Build ID</span>
-                  <span className="text-[11px] text-text-primary" style={{ fontFamily: 'var(--font-mono)' }}>{buildInfo.buildId}</span>
+                  <span className="text-xs text-text-muted">Build ID</span>
+                  <span className="text-xs text-text-primary" style={{ fontFamily: 'var(--font-mono)' }}>{buildInfo.buildId}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-text-muted">Type</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${typeClass}`}>{typeLabel}</span>
+                  <span className="text-xs text-text-muted">Type</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${typeClass}`}>{typeLabel}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-text-muted">Status</span>
+                  <span className="text-xs text-text-muted">Status</span>
                   <StatusBadge status={buildInfo.status} size="sm" />
                 </div>
                 {buildInfo.totalTasks > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-text-muted">Tasks</span>
-                    <span className="text-[11px] text-text-primary">{buildInfo.doneTasks}/{buildInfo.totalTasks} done</span>
+                    <span className="text-xs text-text-muted">Tasks</span>
+                    <span className="text-xs text-text-primary">{buildInfo.doneTasks}/{buildInfo.totalTasks} done</span>
                   </div>
                 )}
               </div>

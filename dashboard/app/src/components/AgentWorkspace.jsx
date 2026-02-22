@@ -20,6 +20,7 @@ function AgentWorkspace() {
   const [planningBuilds, setPlanningBuilds] = useState(new Set())
   const [buildDocs, setBuildDocs] = useState({})
   const [pendingQuestions, setPendingQuestions] = useState([])
+  const [questionsDismissed, setQuestionsDismissed] = useState(false)
   const [chatMessages, setChatMessages] = useState([])
   const [isAgentThinking, setIsAgentThinking] = useState(false)
   const [liveLines, setLiveLines] = useState([])
@@ -55,16 +56,27 @@ function AgentWorkspace() {
 
   const onTaskStatusChanged = useCallback((payload) => {
     if (!payload?.taskId || !payload?.status) return
-    setTasks(prev => prev.map(task => (
-      task.id === payload.taskId
-        ? { ...task, status: payload.status, blockedReason: payload.blockedReason || task.blockedReason }
-        : task
-    )))
+    setTasks(prev => {
+      const updated = prev.map(task => (
+        task.id === payload.taskId
+          ? { ...task, status: payload.status, blockedReason: payload.blockedReason || task.blockedReason }
+          : task
+      ))
+      // If no tasks are in_progress anymore, clear thinking state
+      const stillRunning = updated.some(t => t.status === 'in_progress')
+      if (!stillRunning) {
+        setIsAgentThinking(false)
+      }
+      return updated
+    })
   }, [setTasks])
 
   const onExecutionLog = useCallback((payload) => {
     if (!payload?.message && payload?.message !== '') return
     const payloadBuildId = payload.buildId || selectedBuildId || ''
+    // Only show logs for the currently selected build
+    if (payloadBuildId && payloadBuildId !== selectedBuildId) return
+
     const stream = payload.stream || 'log'
     const msg = String(payload.message || '')
     const ts = payload.timestamp || new Date().toISOString()
@@ -117,12 +129,16 @@ function AgentWorkspace() {
         next.delete(payload.buildId)
         return next
       })
+      // Clear thinking state when a build status transition completes
+      if (payload.buildId === selectedBuildId) {
+        setIsAgentThinking(false)
+      }
       if (payload.status === 'planning' || payload.status === 'blocked') {
         refreshTasks(payload.buildId)
         fetchDocs(payload.buildId).then(docs => setBuildDocs(docs)).catch(() => {})
       }
     }
-  }, [refreshBuilds, refreshTasks, fetchDocs])
+  }, [selectedBuildId, refreshBuilds, refreshTasks, fetchDocs])
 
   const onChatMessage = useCallback((payload) => {
     if (!payload?.id) return
@@ -146,8 +162,6 @@ function AgentWorkspace() {
 
     if (payload.role === 'assistant') {
       setIsAgentThinking(false)
-      // Clear live lines when assistant responds (the output is done)
-      setLiveLines([])
     }
   }, [])
 
@@ -178,6 +192,10 @@ function AgentWorkspace() {
 
   const onRunnerQuestions = useCallback((payload) => {
     if (!payload?.questions?.length) return
+    // Only accept questions for the currently selected build
+    const questionBuildId = payload.buildId || ''
+    if (questionBuildId && questionBuildId !== selectedBuildId) return
+
     const cleanedQuestions = payload.questions
       .map(q => String(q || '').replace(/\s+/g, ' ').trim())
       .filter(q => q && q !== '?')
@@ -185,6 +203,7 @@ function AgentWorkspace() {
     const phase = payload.phase || 'unknown'
     const taskId = payload.taskId || null
     const signature = `${phase}:${taskId || ''}:${cleanedQuestions.join(' | ')}`
+    setQuestionsDismissed(false) // New questions arrived — show them
     setPendingQuestions(prev => {
       const hasSame = prev.some(item => {
         const itemQuestions = Array.isArray(item?.questions) ? item.questions : []
@@ -202,7 +221,7 @@ function AgentWorkspace() {
         },
       ]
     })
-  }, [])
+  }, [selectedBuildId])
 
   useSSE(selectedBuildId, {
     onConnected,
@@ -281,6 +300,8 @@ function AgentWorkspace() {
         return
       }
       setPlanningBuilds(prev => new Set(prev).add(buildId))
+      setLiveLines([]) // Clear previous output
+      setIsAgentThinking(true) // Show live output stream
       addLog('system', `Starting planning for ${buildId}...`)
       try {
         await planBuild(buildId)
@@ -288,6 +309,7 @@ function AgentWorkspace() {
         await refreshBuilds()
       } catch (err) {
         addLog('error', `Planning failed: ${err.message}`)
+        setIsAgentThinking(false)
         setPlanningBuilds(prev => {
           const next = new Set(prev)
           next.delete(buildId)
@@ -309,6 +331,8 @@ function AgentWorkspace() {
       }
     } else if (newStatus === 'in_progress') {
       const isRetry = currentStatus === 'in_progress'
+      setLiveLines([])
+      setIsAgentThinking(true)
       if (isRetry) {
         addLog('system', `Retrying task execution for ${buildId}...`)
       } else {
@@ -537,11 +561,14 @@ function AgentWorkspace() {
 
   const handleExecuteTask = async (taskId) => {
     if (!selectedBuildId) return
+    setLiveLines([])
+    setIsAgentThinking(true)
     addLog('system', `Starting execution of ${taskId}...`)
     try {
       await startExecution(taskId)
     } catch (err) {
       addLog('error', `Execute failed: ${err.message}`)
+      setIsAgentThinking(false)
     }
   }
 
@@ -558,6 +585,7 @@ function AgentWorkspace() {
   const handleSendChat = async (message) => {
     if (!selectedBuildId) return
     setPendingQuestions([])
+    setQuestionsDismissed(true)
     pendingActivityRef.current = []
     setLiveLines([]) // Clear live output for new interaction
     setIsAgentThinking(true)
@@ -601,6 +629,7 @@ function AgentWorkspace() {
       setChatMessages([])
       setLiveLines([])
       setPendingQuestions([])
+      setQuestionsDismissed(false)
       pendingActivityRef.current = []
       setIsAgentThinking(false)
       if (buildId) {
@@ -626,6 +655,8 @@ function AgentWorkspace() {
 
   const effectivePendingQuestions = useMemo(() => {
     if (pendingQuestions.length > 0) return pendingQuestions
+    // If user already answered (dismissed), don't fall back to stale build object questions
+    if (questionsDismissed) return []
     const fromBuild = Array.isArray(selectedBuild?.needsInputQuestions) && selectedBuild.needsInputQuestions.length > 0
       ? selectedBuild.needsInputQuestions.filter(Boolean)
       : (Array.isArray(selectedBuild?.openQuestions) ? selectedBuild.openQuestions.filter(Boolean) : [])
@@ -636,7 +667,7 @@ function AgentWorkspace() {
       questions: fromBuild,
       timestamp: new Date().toISOString(),
     }]
-  }, [pendingQuestions, selectedBuild])
+  }, [pendingQuestions, questionsDismissed, selectedBuild])
 
   const isSelectedBuildPlanning = selectedBuildId ? planningBuilds.has(selectedBuildId) : false
   const runningCount = useMemo(

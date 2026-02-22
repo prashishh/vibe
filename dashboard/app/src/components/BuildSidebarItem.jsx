@@ -35,16 +35,16 @@ function BuildSidebarItem({ build, selected, onSelect, isPlanning }) {
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <span
-              className="text-[10px] text-text-muted"
+              className="text-xs text-text-muted"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {build.buildId}
             </span>
-            <span className={`text-[10px] font-semibold ${typeClass}`}>
+            <span className={`text-xs font-semibold ${typeClass}`}>
               {typeLabel}
             </span>
             {isPlanning && (
-              <span className="text-[10px] text-warning animate-pulse">Planning...</span>
+              <span className="text-xs text-warning animate-pulse">Planning...</span>
             )}
           </div>
         </div>
@@ -54,7 +54,7 @@ function BuildSidebarItem({ build, selected, onSelect, isPlanning }) {
             <span className="w-2 h-2 rounded-full bg-warning" title="Open questions" />
           )}
           {progress && (
-            <span className="text-[10px] text-text-muted tabular-nums">{progress}</span>
+            <span className="text-xs text-text-muted tabular-nums">{progress}</span>
           )}
         </div>
       </div>
