@@ -171,8 +171,9 @@ your-project/
 core/                         Framework specification and guard templates
 templates/build/              Full build templates (9 documents)
 templates/lite/               Lite build templates (4 documents)
-adapters/claude/commands/     Claude Code skill definitions
-adapters/codex/               Codex adapter
+adapters/claude/commands/     Claude Code skill definitions (with allowed-tools frontmatter)
+adapters/codex/commands/      Codex skill definitions
+adapters/generic/commands/    Agent-agnostic skills for Cursor, Windsurf, Copilot, Aider, etc.
 dashboard/app/                React frontend (Vite + Tailwind)
 dashboard/server/             Node.js backend (Express + WebSocket)
 ```
