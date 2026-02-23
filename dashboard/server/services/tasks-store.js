@@ -93,6 +93,29 @@ function firstTaskTitle(description) {
   return summary.charAt(0).toUpperCase() + summary.slice(1);
 }
 
+/**
+ * Extract a human-readable title from GOAL.md.
+ * Looks for the first H1 heading (`# Build vN: Title`) and returns the part
+ * after the colon.  Falls back to the full H1 text, then to ''.
+ */
+async function extractGoalTitle(buildId) {
+  try {
+    const goalPath = path.join(buildDirPath(buildId), 'GOAL.md');
+    const content = await fs.readFile(goalPath, 'utf8');
+    const firstLine = content.split('\n').find(l => l.startsWith('# '));
+    if (!firstLine) return '';
+    // Format: "# Build vN: Feature Name"  →  extract after the colon
+    const colonIdx = firstLine.indexOf(':');
+    if (colonIdx >= 0) {
+      return firstLine.slice(colonIdx + 1).trim();
+    }
+    // No colon — return the heading without the leading "# "
+    return firstLine.replace(/^#\s+/, '').trim();
+  } catch {
+    return '';
+  }
+}
+
 function buildGoalMarkdown({ buildId, buildType, customType, description }) {
   const title = summarizeText(description, 'New Feature');
   const label = buildType === 'custom'
@@ -734,11 +757,17 @@ async function listBuilds() {
       buildStatus = 'planning';
     }
 
+    // Use GOAL.md title when description is missing (e.g. builds created via terminal)
+    let description = (meta?.description || '').trim();
+    if (!description) {
+      description = await extractGoalTitle(buildId);
+    }
+
     results.push({
       buildId,
       status: buildStatus,
       buildType: meta?.buildType || 'lite',
-      description: meta?.description || '',
+      description,
       totalTasks,
       doneTasks,
       inProgressTasks,
