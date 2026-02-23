@@ -956,7 +956,7 @@ function AgentWorkspace() {
         />
 
         {/* Center content area */}
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
           {selectedBuild ? (
             <BuildDetailPanel
               onDelete={handleDeleteBuild}
