@@ -10,7 +10,7 @@ node_modules/
 # ============================================================
 dist/
 dist-ssr/
-build/
+/build/
 out/
 .output/
 

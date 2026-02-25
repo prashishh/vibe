@@ -7,7 +7,7 @@ Vibe is an agentic software delivery framework that gives AI coding assistants a
 ## Setup
 
 ```bash
-git clone https://github.com/prashishrajbhandari/vibe.git ~/src/vibe
+git clone https://github.com/prashishh/vibe.git ~/src/vibe
 cd ~/src/vibe
 npm install
 npm link
